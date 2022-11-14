@@ -38,7 +38,9 @@ with dai.Device(pipeline) as device:
     # Set up folders to store images
     path = "./"
     path += input("Enter Folder Name Here: ")
+    print("Creating ...")
     os.mkdir(path)
+    print("Folder Created")
 
     count = 0
     ctime = time.time() - delay
@@ -52,6 +54,7 @@ with dai.Device(pipeline) as device:
         if time.time() - ctime >= delay:
             ctime = time.time()
             cv2.imwrite(path+'/'+str(count)+'.png', frame)
+            print("Saved Image " + str(count))
             count += 1
 
         cv2.imshow("rgb", frame)
