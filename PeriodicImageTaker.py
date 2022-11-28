@@ -18,13 +18,14 @@ xoutRgb = pipeline.create(dai.node.XLinkOut)
 xoutRgb.setStreamName("rgb")
 
 # Properties
-#camRgb.setPreviewSize(640,640)
+camRgb.setPreviewSize(640,640)
 camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
 camRgb.setInterleaved(False)
 camRgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.RGB)
+camRgb.setFps(60)
 
 # Linking
-camRgb.preview.link(xoutRgb.input)
+camRgb.video.link(xoutRgb.input)
 
 # Connect to device and start pipeline
 with dai.Device(pipeline) as device:
