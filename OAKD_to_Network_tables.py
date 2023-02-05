@@ -7,6 +7,7 @@ import depthai as dai
 #Special MOE one
 import moe_apriltags as apriltag
 import numpy as np
+from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
@@ -39,24 +40,50 @@ def create_pipeline():
 
 detector = apriltag.Detector(families="tag16h5", nthreads=2)
 
+@dataclass
+class Transform:
+    translation: np.ndarray
+    rotation: R
+
+    def inv(self) -> 'Transform':
+        return Transform(
+            rotation = self.rotation.inv(),
+            translation = self.rotation.apply(-self.translation, inverse = True)
+        )
+
+    def combine(self, other: 'Transform') -> 'Transform':
+        return Transform(
+            rotation = R.concatenate(self, other),
+            translation = self.translation + self.rotation.apply(other.translation)
+        )
+        #return R.concatenate([self, other])
+
+
+robot_cam_tl = np.array([0,0,0])
+
+
 def calculate_pose(det: apriltag.Detection):
     #negate to account for rotation of tag
-    rotation = R.from_matrix(-result.pose_R)
+    tag_cs = Transform(
+        translation=result.pose_t[:,0],
+        rotation=R.from_matrix(-result.pose_R)
+    )
     
     if debug:
         print(result.pose_R)
-    
-    translation = result.pose_t[:,0]
 
-    rotation_inv = rotation.inv()
-    rinv = np.linalg.inv(result.pose_R)
-    translation_inv = rotation.apply(-translation, inverse=True)
-
-    tinv = -rinv@translation
+    camera_ro_ts = tag_cs.rotation.inv()
+    camera_tl_ts = tag_cs.rotation.apply(-tag_cs.translation, inverse=True)
 
     # print(translation_inv, tinv)
 
-    return rotation_inv, translation_inv, rotation, translation
+    tag_tl_fs = tag.tag_translation[det.tag_id]
+    tag_ro_fs = tag.tag_rotation[det.tag_id]
+
+    cam_tl_fs = tag_tl_fs + (tag_ro_fs.apply(camera_tl_ts))
+    camera_ro_fs = R.concatenate([tag_ro_fs, camera_ro_ts])
+
+    return camera_ro_ts, camera_tl_ts
 
 
 with dai.Device(create_pipeline()) as device:
@@ -94,7 +121,10 @@ with dai.Device(create_pipeline()) as device:
         results.sort(reverse=True, key = lambda x: x.pose_err)
         result: apriltag.Detection = results[0]
 
-        rotation_ts, translation_ts, rotation_cs, translation_cs = calculate_pose(result)
+        rotation_cs = result.pose_R
+        translation_cs = result.pose_t[:,0]
+
+        rotation_ts, translation_ts = calculate_pose(result)
             
         if(debug):
             if len(buffer) > 20:
@@ -114,11 +144,11 @@ with dai.Device(create_pipeline()) as device:
         #New frame of reference: x - towards target, y - side to side, z - up and down
         translation_ts = translation_ts[[2,0,1]]
 
-        translation_ts[0] = (-1)**(tag.rot0[result.tag_id])* \
+        translation_ts[0] = (-1)**(tag.tag_rotation[result.tag_id])* \
                                 translation_ts[0] + \
                                 tag.posvec[result.tag_id][0]
         
-        translation_ts[1] = (-1)**(tag.rot0[result.tag_id]^1)* \
+        translation_ts[1] = (-1)**(tag.tag_rotation[result.tag_id]^1)* \
                                 translation_ts[1] + \
                                 tag.posvec[result.tag_id][1]
 

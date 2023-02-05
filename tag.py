@@ -1,18 +1,18 @@
 import json
 import numpy as np
+from scipy.spatial.transform import Rotation as R
 
 tagf = open('tags.json')
 
 data = json.load(tagf)
 
-tagpos = [0]*9
-rot0 = [0]*9
+tag_translation = [0]*9
+tag_rotation = [0]*9
 
 for tag in data["tags"]:
-    posvec = []
-    for pos in tag['pose']['translation'].values():
-        posvec += [float(pos)]
-    posvec = np.array(posvec)
-    tagpos[tag['ID']] = posvec
-    if tag['pose']['rotation']['quaternion']['W']:
-        rot0[tag['ID']] = 1
+    pose = tag['pose']
+    posvec = [float(pos) for pos in pose['translation'].values()]
+    tag_translation[tag['ID']] = np.array(posvec)
+
+    rotation = pose["rotation"]['quaternion'] 
+    tag_rotation[tag['ID']] = R.from_quat([rotation['W'], rotation['X'], rotation['Y'], rotation['Z']])
