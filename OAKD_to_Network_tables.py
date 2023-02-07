@@ -59,7 +59,10 @@ class Transform:
         #return R.concatenate([self, other])
 
 
-robot_cam_tl = np.array([0,0,0])
+camera_rs = Transform(
+    translation = np.array([0,0,0]),
+    rotation = R.identity(),
+)
 
 
 def calculate_pose(det: apriltag.Detection):
@@ -72,18 +75,23 @@ def calculate_pose(det: apriltag.Detection):
     if debug:
         print(result.pose_R)
 
-    camera_ro_ts = tag_cs.rotation.inv()
-    camera_tl_ts = tag_cs.rotation.apply(-tag_cs.translation, inverse=True)
-
+    cam_ts = tag_cs.inv()
+    
     # print(translation_inv, tinv)
 
     tag_tl_fs = tag.tag_translation[det.tag_id]
     tag_ro_fs = tag.tag_rotation[det.tag_id]
 
-    cam_tl_fs = tag_tl_fs + (tag_ro_fs.apply(camera_tl_ts))
-    camera_ro_fs = R.concatenate([tag_ro_fs, camera_ro_ts])
+    tag_fs = Transform(
+        translation= tag_tl_fs,
+        rotation=tag_ro_fs
+    )
 
-    return camera_ro_ts, camera_tl_ts
+    cam_fs = tag_fs.combine(cam_ts) #Transforms camera in field space to tag in field space. Camera in robot space is then transformed into robot in camera space, which allows us to get robot in field space.
+    robot_cs = camera_rs.inv()
+    robot_fs = cam_fs.combine(robot_cs)
+
+    return robot_fs
 
 
 with dai.Device(create_pipeline()) as device:
@@ -124,13 +132,13 @@ with dai.Device(create_pipeline()) as device:
         rotation_cs = result.pose_R
         translation_cs = result.pose_t[:,0]
 
-        rotation_ts, translation_ts = calculate_pose(result)
+        robot_fs = calculate_pose(result)
             
         if(debug):
             if len(buffer) > 20:
                 buffer = buffer[-20:]
             
-            buffer.append([*translation_ts, *translation_cs])
+            buffer.append([*robot_fs.translation, *translation_cs])
             b = np.array(buffer)
             ax1.cla()
             ax1.set(xlim=(-5,5), ylim=(-5,5))
@@ -139,47 +147,8 @@ with dai.Device(create_pipeline()) as device:
             ax1.plot(b[:,3], b[:,5])
             plt.draw()
             plt.pause(.001)
+
+
+        nts.send_pose(list(np.concatenate([robot_fs.translation, robot_fs.rotation.as_quat()]))) #Returns robot in field space.
+
         
-        #Original frame of reference: x - side to side, y - up and down, z - towards target
-        #New frame of reference: x - towards target, y - side to side, z - up and down
-        translation_ts = translation_ts[[2,0,1]]
-
-        translation_ts[0] = (-1)**(tag.tag_rotation[result.tag_id])* \
-                                translation_ts[0] + \
-                                tag.posvec[result.tag_id][0]
-        
-        translation_ts[1] = (-1)**(tag.tag_rotation[result.tag_id]^1)* \
-                                translation_ts[1] + \
-                                tag.posvec[result.tag_id][1]
-
-
-        translation_ts[2] += tag.posvec[result.tag_id][2]
-
-
-        #Rotation details
-        uvecp = [0,0,1] #plane vector
-        uvecn = [0,1,0] #normal vector
-        rotvec = rotation_ts@uvecp
-        rollvec = rotation_ts@uvecn
-
-        #Original frame of reference: x - side to side, y - up and down, z - towards target
-        #New frame of reference: x - towards target, y - side to side, z - up and down
-        rotvec = rotvec[[2,0,1]]
-        rollvec = rollvec[[2,0,1]]
-
-        #All angles given in deg, +- 180
-
-        #yaw - counterclockwise - 0 in line with [1,0,0]
-        yaw = np.arctan2(rotvec[1], rotvec[0])
-
-        #pitch - counterclockwise - 0 in line with [1,0,0]
-        pitch = np.arctan2(rotvec[2], rotvec[0])
-
-        #roll - counterclockwise - 0 in line with [0,0,1]
-        roll = np.arctan2(rollvec[1], rollvec[2])
-
-        #compile angles and turn them into degrees
-        angles = [yaw, pitch, roll]
-        angles = [np.rad2deg(a) for a in angles]
-
-        nts.send_pose([*translation_ts, *angles])
