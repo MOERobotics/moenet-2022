@@ -12,6 +12,7 @@ export class App {
     private data = new DataSource();
     private controls: FlyControls;
     private view: RFView;
+    private textOverlay: HTMLElement;
 
     /**
      * Based off the three.js docs: https://threejs.org/examples/?q=cube#webgl_geometry_cube
@@ -19,6 +20,12 @@ export class App {
     constructor() {
         this.clock = new Clock();
         this.camera = new PerspectiveCamera(60, window.innerWidth / window.innerHeight, .01, 50);
+
+        this.textOverlay = document.createElement('div');
+        this.textOverlay.style.position = 'absolute';
+        this.textOverlay.style.bottom = '0';
+        this.textOverlay.innerText = 'Field';
+        document.body.appendChild(this.textOverlay);
 
         this.scene = new Scene();
         this.scene.add(new AxesHelper(5));
@@ -76,6 +83,8 @@ export class App {
         if (this.view.setFrame(this.controls.referenceFrame)) {
             this.resetCameraAfterRFSwitch();
         }
+        const rf = this.view.frame;
+        this.textOverlay.innerText = `${rf.type} ${(rf as any).id ?? ''}`;
 
         this.render();
     }
