@@ -15,7 +15,7 @@ if __name__ == '__main__':
     while True:
         with debug.frame() as frame:
             pose = Pose(
-                translation=np.array([i * .01, 0., 0.], dtype=float),
+                translation=np.array([i * .05, 0., 0.], dtype=float),
                 rotation=R.from_euler('xyz', [i * .0, 0, 0]),
             )
 
@@ -23,6 +23,6 @@ if __name__ == '__main__':
         
         print('robot pose', i * .1)
         i += 1
-        if i > 1e3:
+        if i > 1e3/5:
             i = 0
         sleep(.01)
