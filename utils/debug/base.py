@@ -42,7 +42,7 @@ class DebugFrame:
 
     def record(self, item: ItemId, reference_frame: ReferenceFrame, pose: PoseLike):
         translation = pose.translation
-        rotation = pose.rotation.as_quat()
+        rotation = pose.rotation.as_quat()[[1,2,3,0]]
         poses = self._records.setdefault(item, dict())
         poses[reference_frame] = (translation, rotation)
         

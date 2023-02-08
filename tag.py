@@ -15,4 +15,4 @@ for tag in data["tags"]:
     tag_translation[tag['ID']] = np.array(posvec)
 
     rotation = pose["rotation"]['quaternion'] 
-    tag_rotation[tag['ID']] = R.from_quat([rotation['W'], rotation['X'], rotation['Y'], rotation['Z']])
+    tag_rotation[tag['ID']] = R.from_quat([rotation['X'], rotation['Y'], rotation['Z'], rotation['W']])

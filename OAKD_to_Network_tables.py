@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Optional, TYPE_CHECKING
 import tag
 
@@ -9,7 +10,7 @@ if TYPE_CHECKING:
 import numpy as np
 
 from scipy.spatial.transform import Rotation as R
-from utils.debug import Debugger, DebugFrame, FieldId, RobotId, CameraId, TagId
+from utils.debug import Debugger, WebDebug, DebugFrame, FieldId, RobotId, CameraId, TagId
 
 def create_pipeline():
     pipeline = dai.Pipeline()
@@ -30,6 +31,7 @@ class Transform:
     rotation: R
 
     def __init__(self, translation: np.ndarray, rotation: R):
+        translation = np.asarray(translation, dtype=float)
         if translation.shape != (3,):
             raise ValueError(f'Shape of translation is {translation.shape}')
         self.translation = translation
@@ -54,14 +56,14 @@ class Transform:
 
 camera_rs = Transform(
     translation = np.array([0,0,0]),
-    rotation = R.identity(),
+    rotation = R.from_euler('xyz', [90,0,0], degrees=True),
 )
 
 
 def calculate_pose(det: apriltag.Detection, dbf: Optional[DebugFrame] = None):
     tag_cs = Transform(
         translation=result.pose_t[:,0],
-        rotation=R.from_matrix(-result.pose_R)
+        rotation=R.from_matrix(result.pose_R)
     )
 
     cam_ts = tag_cs.inv()
@@ -83,12 +85,18 @@ def calculate_pose(det: apriltag.Detection, dbf: Optional[DebugFrame] = None):
         rs = RobotId()
         cs = CameraId(0)
         ts = TagId(det.tag_id)
+
         dbf.record(ts, cs, tag_cs)
+        # dbf.record(rs, cs, robot_cs)
+
         dbf.record(cs, ts, cam_ts)
+
+        dbf.record(cs, rs, camera_rs)
+        tag_rs = cam_ts.combine(robot_cs)
+        dbf.record(ts, rs, tag_rs)
+        
         dbf.record(ts, fs, tag_fs)
         dbf.record(cs, fs, cam_fs)
-        dbf.record(cs, rs, camera_rs)
-        dbf.record(rs, cs, robot_cs)
         dbf.record(rs, fs, robot_fs)
 
     return robot_fs
@@ -98,7 +106,7 @@ if __name__ == '__main__':
     import Network_Tables_Sender as nts
     import moe_apriltags as apriltag
 
-    debugger = WebDebug()
+    debugger: Debugger = WebDebug()
 
     detector = apriltag.Detector(families="tag16h5", nthreads=2)
 
@@ -147,6 +155,8 @@ if __name__ == '__main__':
 
                 robot_fs = calculate_pose(result, dbf)
             
+            x, y, z = robot_fs.translation
+            rx,ry,rz,rw = robot_fs.rotation.as_quat()
 
-            pose = [*robot_fs.translation, *robot_fs.rotation.as_quat()]
+            pose = [x, y, z, rw, rx, ry, rz]
             nts.send_pose(pose) #Returns robot in field space.

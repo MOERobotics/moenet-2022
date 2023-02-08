@@ -18,6 +18,8 @@ export class App {
      * Based off the three.js docs: https://threejs.org/examples/?q=cube#webgl_geometry_cube
      */
     constructor() {
+        document.body.style.margin = '0';
+
         this.clock = new Clock();
         this.camera = new PerspectiveCamera(60, window.innerWidth / window.innerHeight, .01, 50);
 
@@ -92,7 +94,9 @@ export class App {
             this.resetCameraAfterRFSwitch();
         }
         const rf = this.view.frame;
-        this.textOverlay.innerText = `${rf.type} ${(rf as any).id ?? ''}`;
+        const t = `${rf.type} ${(rf as any).id ?? ''}`;
+        if (this.textOverlay.innerText != t)
+            this.textOverlay.innerText = t;
 
         this.render();
     }
