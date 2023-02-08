@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 import numpy as np
 
 from scipy.spatial.transform import Rotation as R
-from utils.debug import Debugger, DebugFrame, FieldId, RobotId, CameraId, TagId
+from utils.debug import Debugger, WebDebug, DebugFrame, FieldId, RobotId, CameraId, TagId
 
 def create_pipeline():
     pipeline = dai.Pipeline()
@@ -98,7 +98,7 @@ if __name__ == '__main__':
     import Network_Tables_Sender as nts
     import moe_apriltags as apriltag
 
-    debugger = WebDebug()
+    debugger: Debugger = WebDebug()
 
     detector = apriltag.Detector(families="tag16h5", nthreads=2)
 
