@@ -220,9 +220,9 @@ class Rotation3D(Interpolable['Rotation3D']):
     
     def rotate_by(self, other: 'Rotation3D', *, inv: bool = False) -> 'Rotation3D':
         if inv:
-            return Rotation3D(self._q * ~other._q)
+            return Rotation3D((~other._q) * self._q)
         else:
-            return Rotation3D(self._q * other._q)
+            return Rotation3D(other._q * self._q)
     
     def scale(self, scalar: float) -> 'Rotation3D':
         # https://en.wikipedia.org/wiki/Slerp#Quaternion_Slerp
