@@ -68,15 +68,17 @@ class Rotation3D(Interpolable['Rotation3D']):
          - `angle` Rotation around the axis
          - `degrees` If true, angle is in degrees (otherwise it's in radians)
         """
+        axis = assert_npshape(axis, (3,), 'axis', dtype=float)
+        
         if degrees:
-            angle = np.deg2rad(angle)
+            angle = np.deg2rad(float(angle))
         
         norm = np.linalg.norm(axis)
         if norm == 0:
             raise ValueError('Zero axis')
 
         # https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Definition
-        v = axis * np.reciprocal(norm) * (np.sin(angle/2))
+        v = (axis / norm) * np.sin(angle/2)
         return Rotation3D(Quaternion(np.cos(angle/2), v))
     
     @staticmethod
@@ -218,9 +220,9 @@ class Rotation3D(Interpolable['Rotation3D']):
     
     def rotate_by(self, other: 'Rotation3D', *, inv: bool = False) -> 'Rotation3D':
         if inv:
-            return Rotation3D(self._q * ~other._q)
+            return Rotation3D((~other._q) * self._q)
         else:
-            return Rotation3D(self._q * other._q)
+            return Rotation3D(other._q * self._q)
     
     def scale(self, scalar: float) -> 'Rotation3D':
         # https://en.wikipedia.org/wiki/Slerp#Quaternion_Slerp
@@ -358,22 +360,34 @@ class Translation3D(Interpolable['Translation3D']):
         "X component of translation"
         return self._v[0]
     
+    @x.setter
+    def x(self, x: float):
+        self._v[0] = x
+    
     @property
     def y(self) -> float:
         "Y component of translation"
         return self._v[1]
+
+    @y.setter
+    def y(self, y: float):
+        self._v[1] = y
     
     @property
     def z(self) -> float:
         "Z component of translation"
         return self._v[2]
+    
+    @z.setter
+    def z(self, z: float):
+        self._v[2] = z
 
     def rotate_by(self, rotation: 'Rotation3D') -> 'Translation3D':
         "Apply a rotation in 3d space"
-        p = Quaternion(0, self._v)
+        p = Quaternion(0, self.x, self.y, self.z)
         q = rotation.to_quaternion()
         qPrime = (q * p) * ~q
-        return Translation3D(qPrime.vector_part())
+        return Translation3D(qPrime.x, qPrime.y, qPrime.z)
 
     def __add__(self, other: 'Translation3D') -> 'Translation3D':
         "Combine two translations"
@@ -421,6 +435,11 @@ class Translation3D(Interpolable['Translation3D']):
             and self.distance_to(other) < EPS
         )
     
+    def __str__(self):
+        return f'Translation3D({self.x}, {self.y}, {self.z})'
+    
+    __repr__ = __str__
+    
     def interpolate(self, end: 'Translation3D', t: float) -> 'Translation3D':
         if not 0 < t < 1:
             raise ValueError('Out of bounds')
@@ -445,7 +464,10 @@ class Transform3D:
     @staticmethod
     def between(initial: 'Pose3D', last: 'Pose3D') -> 'Transform3D':
         "Compute transform that maps from the initial pose to the last pose"
-        return last - initial
+        return Transform3D(
+            (last.translation - initial.translation).rotate_by(-initial.rotation),
+            last.rotation - initial.rotation
+        )
 
     def __init__(self, translation: Translation3D, rotation: Rotation3D):
         self.translation = translation
@@ -466,12 +488,17 @@ class Transform3D:
     def __add__(self, other: 'Transform3D') -> 'Transform3D':
         "Compose two transformations"
         if isinstance(other, Transform3D):
-            return Transform3D.between(Pose3D.zero(), (Pose3D.zero() + self) + other)
+            # return Transform3D(
+            #     self.translation + other.translation.rotate_by(self.rotation),
+            #     self.rotation + other.rotation,
+            # )
+            return Transform3D.between(Pose3D.zero(), Pose3D.zero().transform_by(self).transform_by(other))
         return NotImplemented
 
     def __sub__(self, other: 'Transform3D') -> 'Transform3D':
         if isinstance(other, Transform3D):
-            return self + (-other)
+            # return self + (-other)
+            pass
         return NotImplemented
     
     def __neg__(self) -> 'Transform3D':
@@ -494,6 +521,16 @@ class Transform3D:
     def __truediv__(self, scalar: float) -> 'Translation3D':
         "Scale transform"
         return self * np.reciprocal(float(scalar))
+    
+    def __eq__(self, other: object) -> bool:
+        return (
+            isinstance(other, Transform3D)
+            and self.translation == other.translation
+            and self.rotation == other.rotation
+        )
+    
+    def __str__(self):
+        return f'Transform3D({self.translation}, {self.rotation})'
 
 class Twist3D:
     "A change in distance along a 3D arc"
@@ -567,11 +604,8 @@ class Pose3D(Interpolable['Pose3D']):
         return self.translation.z
 
     def relative_to(self, other: 'Pose3D'):
-        transform = self - other
-        return Pose3D(
-            transform.translation,
-            transform.rotation,
-        )
+        transform = Transform3D.between(other, self)
+        return Pose3D.from_transform(transform)
     
     def exp(self, twist: Twist3D) -> 'Pose3D':
         # Implementation from Section 3.2 of https://ethaneade.org/lie.pdf
@@ -639,8 +673,11 @@ class Pose3D(Interpolable['Pose3D']):
 
         return Twist3D(twist_translation, rvec)
 
-    def transform_by(self, transform: Transform3D) -> 'Pose3D':
-        return self + transform
+    def transform_by(self, other: Transform3D) -> 'Pose3D':
+        return Pose3D(
+            self.translation + (other.translation.rotate_by(self.rotation)),
+            self.rotation + other.rotation
+        )
     
     def as_2d(self) -> Pose2D:
         return Pose2D(
@@ -648,18 +685,14 @@ class Pose3D(Interpolable['Pose3D']):
             self.rotation.to_2d(),
         )
     
-    def __add__(self, transform: Transform3D) -> 'Pose3D':
-        return Pose3D(
-            self.translation + (transform.translation.rotate_by(self.rotation)),
-            transform.rotation + self.rotation
-        )
+    def __add__(self, other: Transform3D) -> 'Pose3D':
+        if isinstance(other, Transform3D):
+            return self.transform_by(other)
+        return NotImplemented
 
     def __sub__(self, other: 'Pose3D') -> Transform3D:
         if isinstance(other, Pose3D):
-            return Transform3D(
-                (self.translation - other.translation).rotate_by(-other.rotation),
-                self.rotation - other.rotation
-            )
+            return self.relative_to(other)
         return NotImplemented
     
     def __str__(self) -> str:
