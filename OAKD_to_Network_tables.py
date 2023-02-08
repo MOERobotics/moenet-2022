@@ -147,6 +147,8 @@ if __name__ == '__main__':
 
                 robot_fs = calculate_pose(result, dbf)
             
+            x, y, z = robot_fs.translation
+            rx,ry,rz,rw = robot_fs.rotation.as_quat()
 
-            pose = [*robot_fs.translation, *robot_fs.rotation.as_quat()]
+            pose = [x, y, z, rw, rx, ry, rz]
             nts.send_pose(pose) #Returns robot in field space.
