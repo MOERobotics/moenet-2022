@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 class GraphDebug(Debugger):
+    "Debug game objects by plotting them"
     def __init__(self, rf: ReferenceFrame, item: ItemId, buffer_len: int = 100) -> None:
         super().__init__()
 

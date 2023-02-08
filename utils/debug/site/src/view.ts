@@ -1,4 +1,4 @@
-import { BoxGeometry, Material, Mesh, MeshBasicMaterial, Quaternion, Scene, Sprite, SpriteMaterial, Texture, TextureLoader, Vector3 } from "three";
+import { BoxGeometry, Euler, Material, Mesh, MeshBasicMaterial, Quaternion, Scene, Sprite, SpriteMaterial, Texture, TextureLoader, Vector3 } from "three";
 import { AprilTag, FAMILY_16h5 } from "./apriltag";
 import DataSource, { CameraId, ItemId, Pose3D, ReferenceFrame, TagId } from "./data";
 const ROBOT_HEIGHT = 1.0;
@@ -146,7 +146,7 @@ export class RFView {
 				this.setFrame({type: this._frame.type, id: this._frame.id % maxCameraId });
 			}
 		} else if (this._frame.type === 'tag' && this._frame.id > FAMILY_16h5.size) {
-			this.setFrame({type: this._frame.type, id: ((this._frame.id - 1) % (FAMILY_16h5.size - 1)) + 1 });
+			this.setFrame({type: this._frame.type, id: (this._frame.id % FAMILY_16h5.size) });
 		}
 
 		const missedItems = new Set(this.items.keys());
@@ -162,12 +162,18 @@ export class RFView {
 					translation = new Vector3(0, 0, ROBOT_HEIGHT / 2).add(translation);
 					break;
 				case 'tag': {
-					const quat = new Quaternion();
-					quat.setFromAxisAngle(new Vector3(0,1,0), Math.PI / 2);
-					// rotation = quat.premultiply(rotation);
-					console.log('tag r', rotation);
+					const initial = new Quaternion().copy(rotation);
+					const q1 = new Quaternion();
+					q1.setFromAxisAngle(new Vector3(0,1,0), Math.PI/2);
+					const q2 = new Quaternion();
+					q2.setFromAxisAngle(new Vector3(0,0,1), Math.PI/2);
+					q1.multiply(q2);
+					// rotation = new Quaternion().multiplyQuaternions(q1, rotation);
+					console.log(item.id, initial, rotation);
 					break;
 				}
+				case 'camera':
+					console.log('cam tl', translation);
 			}
 
 			if (extant !== undefined) {
