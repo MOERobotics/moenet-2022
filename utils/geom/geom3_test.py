@@ -465,7 +465,27 @@ class Transform3DTest(TestCase):
         self.assertAlmostEqual(transformedSeparate.x, transformedCombined.x)
         self.assertAlmostEqual(transformedSeparate.y, transformedCombined.y)
         self.assertAlmostEqual(transformedSeparate.z, transformedCombined.z)
-        self.assertAlmostEqual( transformedSeparate.rotation.z, transformedCombined.rotation.z)
+        self.assertEqual(transformedSeparate.rotation, transformedCombined.rotation)
+    
+    def test_composition2(self):
+        initial = Pose3D(
+            Translation3D(1, 0,0),
+            Rotation3D.from_axis_angle(zAxis, 90, degrees=True)
+        )
+        transform1 = Transform3D(
+            Translation3D(1,0,0),
+            Rotation3D.from_axis_angle(xAxis, 90, degrees=True),
+        )
+        transform2 = Transform3D(
+            Translation3D(1,0,0),
+            Rotation3D.from_axis_angle(yAxis, 90, degrees=True)
+        )
+
+        transformedSeparate = (initial + transform1) + transform2
+        transformedCombined = initial + (transform1 + transform2)
+
+        self.assertEqual(transformedSeparate.rotation, transformedCombined.rotation)
+        self.assertEqual(transformedSeparate.translation, transformedCombined.translation)
 
 
 class Twist3DTest(TestCase):
