@@ -16,8 +16,9 @@ class GraphDebug(Debugger):
         self.ax1 = self.fig.add_subplot(1,1,1)
 
     def finish_frame(self, frame: DebugFrame):
+        # Cap the number of measurements we're taking
         if len(self.buffer) > self.buffer_len:
-            self.buffer = self.buffer[-20:]
+            self.buffer = self.buffer[-self.buffer_len:]
         
         pose = frame[self.item, self.rf]
         if pose is None:
