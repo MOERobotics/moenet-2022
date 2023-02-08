@@ -13,9 +13,7 @@ class AprilTagFamily {
 		const loader = new TextureLoader(new LoadingManager(() => console.log(`Loaded sprite`), undefined, url => console.error(`Unable to load sprite from ${url}`)));
 
 		this.textures = this.texturePaths()
-			.map(path => {
-				console.log(`Loading apriltag texture from ${path}`);
-				return loader.load(path);})
+			.map(path => loader.load(path))
 	}
 	
 	async loadTexturesAsync() {
