@@ -1,26 +1,16 @@
 import Network_Tables_Sender as nts
 import tag
 
+from typing import Optional
 import cv2
 import depthai as dai
 
 #Special MOE one
 import moe_apriltags as apriltag
 import numpy as np
-from dataclasses import dataclass
 
-import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
-
-debug = 1
-
-if debug:
-    plt.ion()
-    fig = plt.figure()
-    ax1 = fig.add_subplot(1,1,1)
-
-
-buffer = []
+from utils.debug import Debugger, DebugFrame, FieldId, RobotId, CameraId, TagId
 
 #Creating pipeline
 def create_pipeline():
@@ -37,6 +27,7 @@ def create_pipeline():
     monocam.out.link(monoout.input)
     return pipeline
 
+debugger = Debugger()
 
 detector = apriltag.Detector(families="tag16h5", nthreads=2)
 
@@ -58,6 +49,8 @@ class Transform:
 
     def combine(self, other: 'Transform') -> 'Transform':
         rotated = self.rotation.apply(other.translation)
+        if rotated.shape != (3, ):
+            rotated = rotated[0]
             
         return Transform(
             rotation = self.rotation * other.rotation,
@@ -72,19 +65,14 @@ camera_rs = Transform(
 )
 
 
-def calculate_pose(det: apriltag.Detection):
+def calculate_pose(det: apriltag.Detection, dbf: Optional[DebugFrame] = None):
     #negate to account for rotation of tag
     tag_cs = Transform(
         translation=result.pose_t[:,0],
         rotation=R.from_matrix(-result.pose_R)
     )
-    
-    if debug:
-        print(result.pose_R)
 
     cam_ts = tag_cs.inv()
-    
-    # print(translation_inv, tinv)
 
     tag_tl_fs = tag.tag_translation[det.tag_id]
     tag_ro_fs = tag.tag_rotation[det.tag_id]
@@ -98,10 +86,24 @@ def calculate_pose(det: apriltag.Detection):
     robot_cs = camera_rs.inv()
     robot_fs = cam_fs.combine(robot_cs)
 
+    if dbf:
+        field = FieldId()
+        rob = RobotId()
+        cam = CameraId(0)
+        tag = TagId(det.tag_id)
+        dbf.record(tag, cam, tag_cs)
+        dbf.record(cam, tag, cam_ts)
+        dbf.record(tag, field, tag_fs)
+        dbf.record(cam, field, cam_fs)
+        dbf.record(cam, rob, camera_rs)
+        dbf.record(rob, cam, robot_cs)
+        dbf.record(rob, field, robot_fs)
+
     return robot_fs
 
 
 with dai.Device(create_pipeline()) as device:
+    device: dai.Device
     monoq = device.getOutputQueue(name="mono", maxSize=1, blocking=False)
 
     calibdata = device.readCalibration()
@@ -113,50 +115,36 @@ with dai.Device(create_pipeline()) as device:
         intrinsics[1][2],
     )
 
+    print('ready')
 
     while True:
         img = monoq.get().getCvFrame()
+        results: list[apriltag.Detection] = detector.detect(
+            img,
+            l=1,
+            r=8,
+            maxhamming=0,
+            estimate_tag_pose=True,
+            tag_size=.1524,
+            camera_params=oak_d_camera_params
+        )
 
-        results = detector.detect(img,
-                                l=1,
-                                r=8,
-                                maxhamming=0,
-                                estimate_tag_pose=True,
-                                tag_size=.1524,
-                                camera_params=oak_d_camera_params)
-        
-        if debug:
-            cv2.imshow('foo', img)
-            if cv2.waitKey(1) == ord('q'):
-                break
-        
-        if len(results) == 0:
-            continue
-        
-        results.sort(reverse=True, key = lambda x: x.pose_err)
-        result: apriltag.Detection = results[0]
-
-        rotation_cs = result.pose_R
-        translation_cs = result.pose_t[:,0]
-
-        robot_fs = calculate_pose(result)
+        with debugger.frame() as dbf:
+            if dbf is not None:
+                cv2.imshow('foo', img)
+                if cv2.waitKey(1) == ord('q'):
+                    break
             
-        if(debug):
-            if len(buffer) > 20:
-                buffer = buffer[-20:]
+            if len(results) == 0:
+                continue
             
-            buffer.append([*robot_fs.translation, *translation_cs])
-            b = np.array(buffer)
-            ax1.cla()
-            ax1.set(xlim=(-5,5), ylim=(-5,5))
-            ax1.scatter([0], [0])
-            ax1.plot(b[:,0], b[:,2])
-            ax1.plot(b[:,3], b[:,5])
-            plt.draw()
-            plt.pause(.001)
+            results.sort(reverse=True, key = lambda x: x.pose_err)
+            result = results[0]
 
+            rotation_cs = result.pose_R
+            translation_cs = result.pose_t[:,0]
 
-
+            robot_fs = calculate_pose(result, dbf)
         
 
         pose = [*robot_fs.translation, *robot_fs.rotation.as_quat()]
