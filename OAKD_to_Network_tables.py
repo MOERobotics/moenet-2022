@@ -156,6 +156,8 @@ with dai.Device(create_pipeline()) as device:
             plt.pause(.001)
 
 
-        nts.send_pose(list(np.concatenate([robot_fs.translation, robot_fs.rotation.as_quat()]))) #Returns robot in field space.
 
         
+
+        pose = [*robot_fs.translation, *robot_fs.rotation.as_quat()]
+        nts.send_pose(pose) #Returns robot in field space.
