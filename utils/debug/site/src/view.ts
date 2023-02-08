@@ -4,9 +4,10 @@ import DataSource, { CameraId, ItemId, Pose3D, ReferenceFrame, TagId } from "./d
 const ROBOT_HEIGHT = 1.0;
 const FIELD_WIDTH = 15.98;
 const FIELD_HEIGHT = 8.21;
+const TAG_SIZE = .152;
 const robotGeometry = new BoxGeometry(ROBOT_HEIGHT, 1.0, 1.0);
 const cameraGeometry = new BoxGeometry(.110, .024, .033);
-const tagGeometry = new BoxGeometry(.001, .152, .152);
+const tagGeometry = new BoxGeometry(TAG_SIZE, TAG_SIZE, .001);
 const fieldGeometry = new BoxGeometry(FIELD_WIDTH, FIELD_HEIGHT, .01);
 
 function matchFrame(u: ReferenceFrame, v: ReferenceFrame) {
