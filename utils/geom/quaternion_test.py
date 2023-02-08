@@ -76,3 +76,56 @@ class QuaternionTest(TestCase):
 		self.assertEqual(-q.x, inv.x)
 		self.assertEqual(-q.y, inv.y)
 		self.assertEqual(-q.z, inv.z)
+
+	def test_inverse1(self):
+		q0 = 2
+		q1 = 5.4
+		q2 = 17
+		q3 = 0.0005
+		q = Quaternion(q0, q1, q2, q3)
+
+		qConjugate = ~q
+
+		self.assertEquals(q0, qConjugate.w)
+		self.assertEquals(-q1, qConjugate.x)
+		self.assertEquals(-q2, qConjugate.y)
+		self.assertEquals(-q3, qConjugate.z)
+	
+	def test_mul2(self):
+		# Case : analytic test case
+
+		qA = Quaternion(1, 0.5, -3, 4)
+		qB = Quaternion(6, 2, 1, -9)
+		qResult = qA * qB
+
+		self.assertAlmostEqual(44, qResult.w)
+		self.assertAlmostEqual(28, qResult.x)
+		self.assertAlmostEqual(-4.5, qResult.y)
+		self.assertAlmostEqual(21.5, qResult.z)
+
+		# comparison with the result given by the formula :
+		# qResult = (scalarA * scalarB - vectorA . vectorB) + (scalarA * vectorB + scalarB * vectorA + vectorA ^
+		# vectorB)
+
+		vectorA = np.array(qA.vector_part())
+		vectorB = np.array(qB.vector_part())
+		vectorResult = np.array(qResult.vector_part())
+
+		scalarPartRef = qA.w * qB.w - np.dot(vectorA, vectorB)
+		self.assertAlmostEqual(scalarPartRef, qResult.w)
+
+		vectorPartRef = ((vectorA * qB.w) + (vectorB * qA.w)) + np.cross(vectorA, vectorB)
+		norm = np.linalg.norm(vectorResult - vectorPartRef)
+
+		self.assertAlmostEqual(0, norm)
+
+		# Conjugate of the product of two quaternions and product of their conjugates :
+		# Conj(qA * qB) = Conj(qB) * Conj(qA)
+
+		conjugateOfProduct = (~qB) * (~qA)
+		productOfConjugate = ~(qA * qB)
+
+		self.assertAlmostEqual(conjugateOfProduct.w, productOfConjugate.w)
+		self.assertAlmostEqual(conjugateOfProduct.x, productOfConjugate.x)
+		self.assertAlmostEqual(conjugateOfProduct.y, productOfConjugate.y)
+		self.assertAlmostEqual(conjugateOfProduct.z, productOfConjugate.z)
