@@ -32,7 +32,6 @@ export class App {
 
         this.view = new RFView(this.scene);
         this.view.setFrame({ type: 'field' });
-        this.resetCameraAfterRFSwitch();
 
         this.renderer = new WebGLRenderer({ antialias: true, alpha: true });
         this.renderer.setClearColor(0x000000, 0); // the default
@@ -45,6 +44,8 @@ export class App {
             movementSpeed: 10,
             dragToLook: true
         });
+
+        this.resetCameraAfterRFSwitch();
 
         window.addEventListener("resize", this.onWindowResize, false);
 
@@ -64,15 +65,22 @@ export class App {
             case 'field':
                 this.camera.position.set(8, -1, 4);
                 this.camera.rotation.set(Math.PI / 2, 0, 0);
+                this.controls.movementSpeed = 10;
                 break;
             case 'robot':
                 this.camera.position.set(0, -1.5, 1);
                 this.camera.rotation.set(Math.PI / 2, 0, 0);
+                this.controls.movementSpeed = 10;
+                break;
+            case 'camera':
+                this.camera.position.set(0, 0, -1);
+                this.camera.rotation.set(0,Math.PI,0);
+                this.controls.movementSpeed = 1;
                 break;
             case 'tag':
-            case 'camera':
                 this.camera.position.set(0, -.5, 0);
                 this.camera.rotation.set(Math.PI / 2, 0, 0);
+                this.controls.movementSpeed = 1;
                 break;
         }
     }
