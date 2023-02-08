@@ -78,7 +78,7 @@ class Rotation3D(Interpolable['Rotation3D']):
             raise ValueError('Zero axis')
 
         # https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Definition
-        v = axis * np.reciprocal(norm) * (np.sin(angle/2))
+        v = (axis / norm) * np.sin(angle/2)
         return Rotation3D(Quaternion(np.cos(angle/2), v))
     
     @staticmethod
@@ -384,10 +384,10 @@ class Translation3D(Interpolable['Translation3D']):
 
     def rotate_by(self, rotation: 'Rotation3D') -> 'Translation3D':
         "Apply a rotation in 3d space"
-        p = Quaternion(0, self._v)
+        p = Quaternion(0, self.x, self.y, self.z)
         q = rotation.to_quaternion()
         qPrime = (q * p) * ~q
-        return Translation3D(qPrime.vector_part())
+        return Translation3D(qPrime.x, qPrime.y, qPrime.z)
 
     def __add__(self, other: 'Translation3D') -> 'Translation3D':
         "Combine two translations"
