@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Optional, TYPE_CHECKING
 import tag
 
@@ -30,6 +31,7 @@ class Transform:
     rotation: R
 
     def __init__(self, translation: np.ndarray, rotation: R):
+        translation = np.asarray(translation, dtype=float)
         if translation.shape != (3,):
             raise ValueError(f'Shape of translation is {translation.shape}')
         self.translation = translation
@@ -54,14 +56,14 @@ class Transform:
 
 camera_rs = Transform(
     translation = np.array([0,0,0]),
-    rotation = R.identity(),
+    rotation = R.from_euler('xyz', [90,0,0], degrees=True),
 )
 
 
 def calculate_pose(det: apriltag.Detection, dbf: Optional[DebugFrame] = None):
     tag_cs = Transform(
         translation=result.pose_t[:,0],
-        rotation=R.from_matrix(-result.pose_R)
+        rotation=R.from_matrix(result.pose_R)
     )
 
     cam_ts = tag_cs.inv()
@@ -84,7 +86,14 @@ def calculate_pose(det: apriltag.Detection, dbf: Optional[DebugFrame] = None):
         cs = CameraId(0)
         ts = TagId(det.tag_id)
         dbf.record(ts, cs, tag_cs)
+        # dbf.record(rs, cs, robot_cs)
+
         dbf.record(cs, ts, cam_ts)
+
+        dbf.record(cs, rs, camera_rs)
+        tag_rs = cam_ts.combine(robot_cs)
+        dbf.record(ts, rs, tag_rs)
+        
         dbf.record(ts, fs, tag_fs)
         dbf.record(cs, fs, cam_fs)
         dbf.record(cs, rs, camera_rs)
