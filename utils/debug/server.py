@@ -22,6 +22,8 @@ class GameItem:
 		self.poses = poses
 
 class ProcQueue(Generic[T]):
+	"Queue that's compatible with both AsyncIO and multiprocessing"
+
 	def __init__(self, maxsize: int = 0):
 		m = Manager()
 		self._queue = m.Queue(maxsize=maxsize)
@@ -111,16 +113,18 @@ def _build_app(queue: ProcQueue[list[GameItem]]):
 	return app
 
 def _run_webserver(queue: ProcQueue[list[GameItem]], port: int):
+	"Runs the webserver. Launch this in a subprocess because it doesn't return."
 	app = _build_app(queue)
 	import uvicorn
 	uvicorn.run(app, host="0.0.0.0", port=port)
 
 
 class WebDebug(Debugger):
+	"Debugger that sends data to a web server to show positions in 3d"
+
 	def __init__(self, port: int = 8081):
 		super().__init__()
 		self._wsdata: ProcQueue[list[GameItem]] = ProcQueue(2)
-		# _run_webserver(self._wsdata)
 		self._wsproc = Process(
 			target=_run_webserver,
 			name='webserver',
