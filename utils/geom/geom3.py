@@ -360,15 +360,27 @@ class Translation3D(Interpolable['Translation3D']):
         "X component of translation"
         return self._v[0]
     
+    @x.setter
+    def x(self, x: float):
+        self._v[0] = x
+    
     @property
     def y(self) -> float:
         "Y component of translation"
         return self._v[1]
+
+    @y.setter
+    def y(self, y: float):
+        self._v[1] = y
     
     @property
     def z(self) -> float:
         "Z component of translation"
         return self._v[2]
+    
+    @z.setter
+    def z(self, z: float):
+        self._v[2] = z
 
     def rotate_by(self, rotation: 'Rotation3D') -> 'Translation3D':
         "Apply a rotation in 3d space"
