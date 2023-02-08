@@ -171,7 +171,7 @@ export default class DataSource {
 			poses: poses.map(({ id, type, translation, rotation }) => ({
 				frame: { type, id } as ReferenceFrame,
 				translation: new Vector3(translation[0], translation[1], translation[2]),
-				rotation: new Quaternion(rotation[0], rotation[1], rotation[2], rotation[3]),
+				rotation: new Quaternion(rotation[1], rotation[2], rotation[3], rotation[0]),
 			}))
 		}) as GameItem);
 	}
