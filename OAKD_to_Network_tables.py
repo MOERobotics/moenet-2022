@@ -2,31 +2,16 @@ from __future__ import annotations
 from typing import Optional, TYPE_CHECKING
 import tag
 
-import depthai as dai
-
-#Special MOE one
 if TYPE_CHECKING:
-    import moe_apriltags as apriltag
+    # Only load these modules if we need them
+    import moe_apriltags as apriltag #Special MOE one
+    import depthai as dai
 import numpy as np
 
 from scipy.spatial.transform import Rotation as R
 from utils.geom.geom3 import Rotation3D, Transform3D, Pose3D, Translation3D
 from utils.geom.quaternion import Quaternion
 from utils.debug import Debugger, DebugFrame, FieldId, RobotId, CameraId, TagId, WebDebug
-
-def create_pipeline():
-    pipeline = dai.Pipeline()
-
-    monoout = pipeline.createXLinkOut()
-    monoout.setStreamName("mono")
-
-    monocam = pipeline.createMonoCamera()
-    monocam.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
-    monocam.setFps(60)
-    monocam.setBoardSocket(dai.CameraBoardSocket.LEFT)
-
-    monocam.out.link(monoout.input)
-    return pipeline
 
 class Transform:
     translation: np.ndarray
@@ -55,23 +40,128 @@ class Transform:
             translation = self.translation + rotated
         )
 
+class TagDetector:
+    camera_rs: Transform3D
+    def detect(self) -> list[tuple[int, Transform3D]]:
+        return []
+    
+    def __enter__(self):
+        return self
 
-camera_rs = Transform3D(
-    Translation3D(0,0,0),
-    Rotation3D.identity()
-)
+    def __exit__(self, *args):
+        pass
+
+class OakTagDetector(TagDetector):
+    @staticmethod
+    def create_pipeline():
+        import depthai as dai
+        pipeline = dai.Pipeline()
+
+        monoout = pipeline.createXLinkOut()
+        monoout.setStreamName("mono")
+
+        monocam = pipeline.createMonoCamera()
+        monocam.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
+        monocam.setFps(30)
+        monocam.setBoardSocket(dai.CameraBoardSocket.LEFT)
+
+        monocam.out.link(monoout.input)
+        return pipeline
+    
+    def __init__(self) -> None:
+        self.camera_rs = Transform3D(
+            Translation3D(0,0,0),
+            Rotation3D.identity()
+            # + Rotation3D.from_axis_angle([1,0,0], 90, degrees=True)
+            # + Rotation3D.from_axis_angle([0,1,0], 180, degrees=True)
+            # + Rotation3D.from_axis_angle([1,0,0], 90, degrees=True)
+        )
+
+        self.detector = apriltag.Detector(families="tag16h5", nthreads=2)
+    
+    def __enter__(self):
+        import depthai as dai
+        self._device = dai.Device(self.create_pipeline())
+        device: dai.Device = self._device.__enter__()
+        self.monoq = device.getOutputQueue(name="mono", maxSize=1, blocking=False)
+        calibdata = device.readCalibration()
+        intrinsics = calibdata.getDefaultIntrinsics(dai.CameraBoardSocket.LEFT)[0]
+        self._camera_params = (
+            intrinsics[0][0],
+            intrinsics[1][1],
+            intrinsics[0][2],
+            intrinsics[1][2],
+        )
+        return self
+    
+    def __exit__(self, *args):
+        res = self._device.__exit__(*args)
+        del self._device
+        return res
+    
+    def detect(self) -> list[tuple[int, Transform3D]]:
+        frame: 'dai.ImgFrame' = self.monoq.get()
+        img: np.ndarray = frame.getCvFrame()
+        detections: list[apriltag.Detection] = self.detector.detect(
+            img,
+            l=1,
+            r=8,
+            maxhamming=0,
+            estimate_tag_pose=True,
+            tag_size=.1524,
+            camera_params=self._camera_params,
+        )
+        if len(detections) == 0:
+            return []
+
+        detections.sort(reverse=True, key = lambda x: x.pose_err)
+        detection = detections[0]
+        
+        tag_cs = Transform3D(
+            Translation3D(detection.pose_t[:,0] * [-1,-1,1]),
+            rotation=-Rotation3D.from_rotation_matrix(detection.pose_R)
+        )
+
+        if True:
+            import cv2
+            cv2.imshow('foo', img)
+            if cv2.waitKey(1) == ord('q'):
+                raise StopIteration
+        
+        return [
+            (detection.tag_id, tag_cs)
+        ]
 
 
-def calculate_pose(det: apriltag.Detection, dbf: Optional[DebugFrame] = None):
-    tag_cs = Transform3D(
-        Translation3D(det.pose_t[:,0]),
-        rotation=Rotation3D(det.pose_R)
-    )
+class FakeTagDetector(TagDetector):
+    def __init__(self):
+        self.camera_rs = Transform3D.identity()
+        self.i = 0
+    
+    def detect(self) -> list[tuple[int, Transform3D]]:
+        if self.i < 60:
+            ax = [1,0,0]
+        elif self.i < 120:
+            ax = [0,1,0]
+        else:
+            ax = [0,0,1]
+        tag_cs = Transform3D(
+            Translation3D(0,0,1),
+            rotation=Rotation3D.from_axis_angle(ax, ((self.i % 60) - 30)*2, degrees=True),
+        )
+        self.i += 1
+        self.i %= 180
+        return [
+            (8, tag_cs)
+        ]
 
+
+def robot_from_tag(tag_cs: Transform3D, tag_id: int, camera_rs: Transform3D, dbf: Optional[DebugFrame] = None):
     cam_ts = -tag_cs
+    # cam_ts.translation *= -1
 
-    tag_tl_fs = tag.tag_translation[det.tag_id]
-    tag_ro_fs = tag.tag_rotation[det.tag_id]
+    tag_tl_fs = tag.tag_translation[tag_id]
+    tag_ro_fs = tag.tag_rotation[tag_id].as_quat()
 
     tag_fs = Transform3D(
         translation=Transform3D(tag_tl_fs),
@@ -82,11 +172,22 @@ def calculate_pose(det: apriltag.Detection, dbf: Optional[DebugFrame] = None):
     robot_cs = -camera_rs
     robot_fs = cam_fs + robot_cs
 
+    tag_fs = Transform3D(
+        Translation3D(tag_tl_fs),
+        Rotation3D.from_quaternion(Quaternion(tag_ro_fs[3], tag_ro_fs[0], tag_ro_fs[1], tag_ro_fs[2]))
+        # + Rotation3D.from_axis_angle([0,1,0], 90, degrees=True)
+        # + Rotation3D.from_axis_angle([0,1,0], -90, degrees=True)
+    )
+
+    cam_fs = Pose3D.from_transform(tag_fs).transform_by(cam_ts) #Transforms camera in field space to tag in field space. Camera in robot space is then transformed into robot in camera space, which allows us to get robot in field space.
+    robot_cs = -camera_rs
+    robot_fs = robot_cs + Transform3D.between(Pose3D.zero(), cam_fs)
+
     if dbf is not None:
         fs = FieldId()
         rs = RobotId()
         cs = CameraId(0)
-        ts = TagId(det.tag_id)
+        ts = TagId(tag_id)
 
         dbf.record(ts, cs, tag_cs)
         # dbf.record(rs, cs, robot_cs)
@@ -109,56 +210,25 @@ if __name__ == '__main__':
     import moe_apriltags as apriltag
 
     debugger: Debugger = WebDebug()
-
-    detector = apriltag.Detector(families="tag16h5", nthreads=2)
-
-    with dai.Device(create_pipeline()) as device:
-        device: dai.Device
-        monoq = device.getOutputQueue(name="mono", maxSize=1, blocking=False)
-
-        calibdata = device.readCalibration()
-        intrinsics = calibdata.getDefaultIntrinsics(dai.CameraBoardSocket.LEFT)[0]
-        oak_d_camera_params = (
-            intrinsics[0][0],
-            intrinsics[1][1],
-            intrinsics[0][2],
-            intrinsics[1][2],
-        )
-
+    with OakTagDetector() as detector:
         print('ready')
 
         while True:
-            img = monoq.get().getCvFrame()
-            results: list[apriltag.Detection] = detector.detect(
-                img,
-                l=1,
-                r=8,
-                maxhamming=0,
-                estimate_tag_pose=True,
-                tag_size=.1524,
-                camera_params=oak_d_camera_params
-            )
+            detections = detector.detect()
+
+            if len(detections) == 0:
+                continue
+
+            detection = detections[0]
 
             with debugger.frame() as dbf:
-                if dbf is not None:
-                    import cv2
-                    cv2.imshow('foo', img)
-                    if cv2.waitKey(1) == ord('q'):
-                        break
+                for other_id, other_pose in detections[1:]:
+                    dbf.record(TagId(other_id), CameraId(0), other_pose)
                 
-                if len(results) == 0:
-                    continue
-                
-                results.sort(reverse=True, key = lambda x: x.pose_err)
-                result = results[0]
-
-                rotation_cs = result.pose_R
-                translation_cs = result.pose_t[:,0]
-
-                robot_fs = calculate_pose(result, dbf)
+                robot_fs = robot_from_tag(detection[1], detection[0], detector.camera_rs, dbf)
             
-            x, y, z = robot_fs.translation
+            tl = robot_fs.translation
             q = robot_fs.rotation.to_quaternion()
 
-            pose = [x, y, z, q.w, q.x, q.y, q.z]
+            pose = [tl.x, tl.y, tl.z, q.w, q.x, q.y, q.z]
             nts.send_pose(pose) #Returns robot in field space.
