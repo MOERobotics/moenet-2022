@@ -19,15 +19,13 @@ export class App {
     constructor() {
         this.clock = new Clock();
         this.camera = new PerspectiveCamera(60, window.innerWidth / window.innerHeight, .01, 50);
-        this.camera.position.z = 4;
-        this.camera.position.x = -2;
-        this.camera.rotation.x = Math.PI / 2;
 
         this.scene = new Scene();
         this.scene.add(new AxesHelper(5));
 
         this.view = new RFView(this.scene);
         this.view.setFrame({ type: 'field' });
+        this.resetCameraAfterRFSwitch();
 
         this.renderer = new WebGLRenderer({ antialias: true, alpha: true });
         this.renderer.setClearColor(0x000000, 0); // the default
@@ -53,12 +51,30 @@ export class App {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
+    private resetCameraAfterRFSwitch() {
+        const rf = this.view.frame;
+        switch (rf.type) {
+            case 'field':
+                this.camera.position.set(8, -1, 4);
+                this.camera.rotation.set(Math.PI / 2, 0, 0);
+                break;
+            case 'robot':
+                this.camera.position.set(0, -1.5, 1);
+                this.camera.rotation.set(Math.PI / 2, 0, 0);
+                break;
+            case 'tag':
+            case 'camera':
+                this.camera.position.set(0, -.5, 0);
+                this.camera.rotation.set(Math.PI / 2, 0, 0);
+                break;
+        }
+    }
+
     private animate() {
         requestAnimationFrame(() => this.animate());
 
         if (this.view.setFrame(this.controls.referenceFrame)) {
-            this.camera.position.set(0,0,2);
-            this.camera.rotation.set(0,0,0);
+            this.resetCameraAfterRFSwitch();
         }
 
         this.render();
