@@ -32,8 +32,8 @@ interface MoveState {
 }
 
 export class FlyControls extends EventDispatcher {
-	private readonly movementSpeed: number;
-	private readonly rollSpeed: number;
+	movementSpeed: number;
+	rollSpeed: number;
 	private readonly dragToLook: boolean;
 	private readonly autoForward: boolean;
 
