@@ -139,6 +139,8 @@ class FakeTagDetector(TagDetector):
         self.i = 0
     
     def detect(self) -> list[tuple[int, Transform3D]]:
+        import time
+        time.sleep(.01)
         if self.i < 60:
             ax = [1,0,0]
         elif self.i < 120:
@@ -152,7 +154,7 @@ class FakeTagDetector(TagDetector):
         self.i += 1
         self.i %= 180
         return [
-            (8, tag_cs)
+            (1, tag_cs)
         ]
 
 
