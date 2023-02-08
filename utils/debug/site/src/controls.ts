@@ -52,7 +52,7 @@ export class FlyControls extends EventDispatcher {
 
 		const {
 			movementSpeed = 1000,
-			rollSpeed = Math.PI / 10,
+			rollSpeed = Math.PI / 5,
 			dragToLook = true,
 			autoForward = false,
 		} = options;
