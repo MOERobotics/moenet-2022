@@ -464,7 +464,10 @@ class Transform3D:
     @staticmethod
     def between(initial: 'Pose3D', last: 'Pose3D') -> 'Transform3D':
         "Compute transform that maps from the initial pose to the last pose"
-        return last - initial
+        return Transform3D(
+            (last.translation - initial.translation).rotate_by(-initial.rotation),
+            last.rotation - initial.rotation
+        )
 
     def __init__(self, translation: Translation3D, rotation: Rotation3D):
         self.translation = translation
@@ -485,12 +488,17 @@ class Transform3D:
     def __add__(self, other: 'Transform3D') -> 'Transform3D':
         "Compose two transformations"
         if isinstance(other, Transform3D):
-            return Transform3D.between(Pose3D.zero(), (Pose3D.zero() + self) + other)
+            # return Transform3D(
+            #     self.translation + other.translation.rotate_by(self.rotation),
+            #     self.rotation + other.rotation,
+            # )
+            return Transform3D.between(Pose3D.zero(), Pose3D.zero().transform_by(self).transform_by(other))
         return NotImplemented
 
     def __sub__(self, other: 'Transform3D') -> 'Transform3D':
         if isinstance(other, Transform3D):
-            return self + (-other)
+            # return self + (-other)
+            pass
         return NotImplemented
     
     def __neg__(self) -> 'Transform3D':
@@ -596,11 +604,8 @@ class Pose3D(Interpolable['Pose3D']):
         return self.translation.z
 
     def relative_to(self, other: 'Pose3D'):
-        transform = self - other
-        return Pose3D(
-            transform.translation,
-            transform.rotation,
-        )
+        transform = Transform3D.between(other, self)
+        return Pose3D.from_transform(transform)
     
     def exp(self, twist: Twist3D) -> 'Pose3D':
         # Implementation from Section 3.2 of https://ethaneade.org/lie.pdf
@@ -668,8 +673,11 @@ class Pose3D(Interpolable['Pose3D']):
 
         return Twist3D(twist_translation, rvec)
 
-    def transform_by(self, transform: Transform3D) -> 'Pose3D':
-        return self + transform
+    def transform_by(self, other: Transform3D) -> 'Pose3D':
+        return Pose3D(
+            self.translation + (other.translation.rotate_by(self.rotation)),
+            self.rotation + other.rotation
+        )
     
     def as_2d(self) -> Pose2D:
         return Pose2D(
@@ -677,18 +685,14 @@ class Pose3D(Interpolable['Pose3D']):
             self.rotation.to_2d(),
         )
     
-    def __add__(self, transform: Transform3D) -> 'Pose3D':
-        return Pose3D(
-            self.translation + (transform.translation.rotate_by(self.rotation)),
-            transform.rotation + self.rotation
-        )
+    def __add__(self, other: Transform3D) -> 'Pose3D':
+        if isinstance(other, Transform3D):
+            return self.transform_by(other)
+        return NotImplemented
 
     def __sub__(self, other: 'Pose3D') -> Transform3D:
         if isinstance(other, Pose3D):
-            return Transform3D(
-                (self.translation - other.translation).rotate_by(-other.rotation),
-                self.rotation - other.rotation
-            )
+            return self.relative_to(other)
         return NotImplemented
     
     def __str__(self) -> str:
