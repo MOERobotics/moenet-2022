@@ -321,6 +321,10 @@ class Rotation3DTest(TestCase):
         self.assertAlmostEqual(np.deg2rad(0), interpolated.x)
         self.assertAlmostEqual(np.deg2rad(0), interpolated.y)
         self.assertAlmostEqual(np.deg2rad(-175), interpolated.z)
+    
+    def test_inv_identity(self):
+        I = Rotation3D.identity()
+        self.assertEqual(I, -I)
 
 
 class Translation3DTest(TestCase):
@@ -419,8 +423,11 @@ class Translation3DTest(TestCase):
 
 
 class Transform3DTest(TestCase):
+    def test_inv_identity(self):
+        I = Transform3D.identity()
+        self.assertEqual(I, -I)
+    
     def test_inv(self):
-        
         initial = Pose3D(
             Translation3D(1, 2, 0),
             Rotation3D.from_axis_angle(zAxis, 45, degrees=True)
@@ -439,8 +446,6 @@ class Transform3DTest(TestCase):
         self.assertAlmostEqual(initial.rotation.z, untransformed.rotation.z)
 
     def test_composition(self):
-        
-
         initial = Pose3D(
             Translation3D(1, 2, 0),
             Rotation3D.from_axis_angle(zAxis, 45, degrees=True)
@@ -495,8 +500,6 @@ class Twist3DTest(TestCase):
         self.assertEqual(expected, straightPose)
     
     def test_quarter_cirle(self):
-        
-
         quarterCircle = Twist3D([5 / 2 * np.pi, 0, 0], [0, 0, np.pi / 2])
         quarterCirclePose = Pose3D.zero().exp(quarterCircle)
 
