@@ -164,7 +164,7 @@ def robot_from_tag(tag_cs: Transform3D, tag_id: int, camera_rs: Transform3D, dbf
     tag_ro_fs = tag.tag_rotation[tag_id].as_quat()
 
     tag_fs = Transform3D(
-        translation=Transform3D(tag_tl_fs),
+        translation=Translation3D(tag_tl_fs),
         rotation=Rotation3D.from_quaternion(Quaternion(tag_ro_fs))
     )
 
