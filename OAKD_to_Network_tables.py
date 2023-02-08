@@ -85,6 +85,7 @@ def calculate_pose(det: apriltag.Detection, dbf: Optional[DebugFrame] = None):
         rs = RobotId()
         cs = CameraId(0)
         ts = TagId(det.tag_id)
+
         dbf.record(ts, cs, tag_cs)
         # dbf.record(rs, cs, robot_cs)
 
@@ -96,8 +97,6 @@ def calculate_pose(det: apriltag.Detection, dbf: Optional[DebugFrame] = None):
         
         dbf.record(ts, fs, tag_fs)
         dbf.record(cs, fs, cam_fs)
-        dbf.record(cs, rs, camera_rs)
-        dbf.record(rs, cs, robot_cs)
         dbf.record(rs, fs, robot_fs)
 
     return robot_fs

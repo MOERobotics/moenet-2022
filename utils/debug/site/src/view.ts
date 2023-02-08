@@ -155,11 +155,19 @@ export class RFView {
 			missedItems.delete(hash);
 			const extant = this.items.get(hash);
 			let translation = item.translation;
+			let rotation = item.rotation;
 			switch (item.type) {
 				case 'robot':
 					// Offset robot so that the bottom is at the floor
 					translation = new Vector3(0, 0, ROBOT_HEIGHT / 2).add(translation);
 					break;
+				case 'tag': {
+					const quat = new Quaternion();
+					quat.setFromAxisAngle(new Vector3(0,1,0), Math.PI / 2);
+					// rotation = quat.premultiply(rotation);
+					console.log('tag r', rotation);
+					break;
+				}
 			}
 
 			if (extant !== undefined) {
@@ -168,14 +176,14 @@ export class RFView {
 				material.transparent = false;
 				material.opacity = 1;
 				mesh.position.copy(translation);
-				mesh.quaternion.copy(item.rotation);
+				mesh.quaternion.copy(rotation);
 				
 				extant[1] = this.frameId;
 			} else {
 				const mesh = this.makeItem(item)!;
 				this.items.set(hash, [mesh, this.frameId]);
 				mesh.position.copy(translation);
-				mesh.quaternion.copy(item.rotation);
+				mesh.quaternion.copy(rotation);
 				this.scene.add(mesh);
 			}
 		}
