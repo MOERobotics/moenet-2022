@@ -435,6 +435,11 @@ class Translation3D(Interpolable['Translation3D']):
             and self.distance_to(other) < EPS
         )
     
+    def __str__(self):
+        return f'Translation3D({self.x}, {self.y}, {self.z})'
+    
+    __repr__ = __str__
+    
     def interpolate(self, end: 'Translation3D', t: float) -> 'Translation3D':
         if not 0 < t < 1:
             raise ValueError('Out of bounds')
@@ -508,6 +513,16 @@ class Transform3D:
     def __truediv__(self, scalar: float) -> 'Translation3D':
         "Scale transform"
         return self * np.reciprocal(float(scalar))
+    
+    def __eq__(self, other: object) -> bool:
+        return (
+            isinstance(other, Transform3D)
+            and self.translation == other.translation
+            and self.rotation == other.rotation
+        )
+    
+    def __str__(self):
+        return f'Transform3D({self.translation}, {self.rotation})'
 
 class Twist3D:
     "A change in distance along a 3D arc"
