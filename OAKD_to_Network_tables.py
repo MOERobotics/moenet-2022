@@ -10,7 +10,9 @@ if TYPE_CHECKING:
 import numpy as np
 
 from scipy.spatial.transform import Rotation as R
-from utils.debug import Debugger, WebDebug, DebugFrame, FieldId, RobotId, CameraId, TagId
+from utils.geom.geom3 import Rotation3D, Transform3D, Pose3D, Translation3D
+from utils.geom.quaternion import Quaternion
+from utils.debug import Debugger, DebugFrame, FieldId, RobotId, CameraId, TagId, WebDebug
 
 def create_pipeline():
     pipeline = dai.Pipeline()
@@ -54,31 +56,31 @@ class Transform:
         )
 
 
-camera_rs = Transform(
-    translation = np.array([0,0,0]),
-    rotation = R.from_euler('xyz', [90,0,0], degrees=True),
+camera_rs = Transform3D(
+    Translation3D(0,0,0),
+    Rotation3D.identity()
 )
 
 
 def calculate_pose(det: apriltag.Detection, dbf: Optional[DebugFrame] = None):
-    tag_cs = Transform(
-        translation=result.pose_t[:,0],
-        rotation=R.from_matrix(result.pose_R)
+    tag_cs = Transform3D(
+        Translation3D(det.pose_t[:,0]),
+        rotation=Rotation3D(det.pose_R)
     )
 
-    cam_ts = tag_cs.inv()
+    cam_ts = -tag_cs
 
     tag_tl_fs = tag.tag_translation[det.tag_id]
     tag_ro_fs = tag.tag_rotation[det.tag_id]
 
-    tag_fs = Transform(
-        translation= tag_tl_fs,
-        rotation=tag_ro_fs
+    tag_fs = Transform3D(
+        translation=Transform3D(tag_tl_fs),
+        rotation=Rotation3D.from_quaternion(Quaternion(tag_ro_fs))
     )
 
-    cam_fs = tag_fs.combine(cam_ts) #Transforms camera in field space to tag in field space. Camera in robot space is then transformed into robot in camera space, which allows us to get robot in field space.
-    robot_cs = camera_rs.inv()
-    robot_fs = cam_fs.combine(robot_cs)
+    cam_fs = tag_fs + cam_ts #Transforms camera in field space to tag in field space. Camera in robot space is then transformed into robot in camera space, which allows us to get robot in field space.
+    robot_cs = -camera_rs
+    robot_fs = cam_fs + robot_cs
 
     if dbf is not None:
         fs = FieldId()
@@ -92,7 +94,7 @@ def calculate_pose(det: apriltag.Detection, dbf: Optional[DebugFrame] = None):
         dbf.record(cs, ts, cam_ts)
 
         dbf.record(cs, rs, camera_rs)
-        tag_rs = cam_ts.combine(robot_cs)
+        tag_rs = cam_ts + robot_cs
         dbf.record(ts, rs, tag_rs)
         
         dbf.record(ts, fs, tag_fs)
@@ -156,7 +158,7 @@ if __name__ == '__main__':
                 robot_fs = calculate_pose(result, dbf)
             
             x, y, z = robot_fs.translation
-            rx,ry,rz,rw = robot_fs.rotation.as_quat()
+            q = robot_fs.rotation.to_quaternion()
 
-            pose = [x, y, z, rw, rx, ry, rz]
+            pose = [x, y, z, q.w, q.x, q.y, q.z]
             nts.send_pose(pose) #Returns robot in field space.
