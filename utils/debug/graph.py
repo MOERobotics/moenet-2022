@@ -1,7 +1,6 @@
 from .base import Debugger, DebugFrame, ReferenceFrame, ItemId
 import matplotlib.pyplot as plt
 import numpy as np
-from typing import ContextManager, Optional
 
 class GraphDebug(Debugger):
     def __init__(self, rf: ReferenceFrame, item: ItemId, buffer_len: int = 100) -> None:
