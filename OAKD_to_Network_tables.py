@@ -40,10 +40,15 @@ def create_pipeline():
 
 detector = apriltag.Detector(families="tag16h5", nthreads=2)
 
-@dataclass
 class Transform:
     translation: np.ndarray
     rotation: R
+
+    def __init__(self, translation: np.ndarray, rotation: R):
+        if translation.shape != (3,):
+            raise ValueError(f'Shape of translation is {translation.shape}')
+        self.translation = translation
+        self.rotation = rotation
 
     def inv(self) -> 'Transform':
         return Transform(
