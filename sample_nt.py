@@ -19,7 +19,7 @@ if __name__ == '__main__':
                 rotation=R.from_euler('xyz', [i * .0, 0, 0]),
             )
 
-            frame.record(FieldId(), RobotId(), pose)
+            frame.record(RobotId(), FieldId(), pose)
         
         print('robot pose', i * .1)
         i += 1
