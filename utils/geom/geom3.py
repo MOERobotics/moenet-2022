@@ -68,8 +68,10 @@ class Rotation3D(Interpolable['Rotation3D']):
          - `angle` Rotation around the axis
          - `degrees` If true, angle is in degrees (otherwise it's in radians)
         """
+        axis = assert_npshape(axis, (3,), 'axis', dtype=float)
+        
         if degrees:
-            angle = np.deg2rad(angle)
+            angle = np.deg2rad(float(angle))
         
         norm = np.linalg.norm(axis)
         if norm == 0:
