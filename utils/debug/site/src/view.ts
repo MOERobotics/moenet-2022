@@ -38,7 +38,7 @@ const RETAIN_FRAMES = 100;
 export class RFView {
 	private _frame: ReferenceFrame = { type: 'camera', id: 0 }
 	private frameId = 0;
-	private items = new Map<string, [mesh: Mesh | Sprite, lastSeen: number]>();
+	private items = new Map<string, [mesh: Mesh, lastSeen: number]>();
 	private readonly robotTexture: Texture;
 	private readonly cameraTexture: Texture;
 	private readonly fieldTexture: Texture;
@@ -71,8 +71,6 @@ export class RFView {
 		switch (item.type) {
 			case 'robot': {
 				const material = new MeshBasicMaterial({ map: this.robotTexture });
-				material.transparent = true;
-				material.opacity = .5;
 				return new Mesh(robotGeometry, material);
 			}
 			case 'tag': {
@@ -82,7 +80,6 @@ export class RFView {
 			}
 			case 'camera': {
 				const material = new MeshBasicMaterial({ map: this.cameraTexture });
-				material.transparent = false;
 				return new Mesh(cameraGeometry, material);
 			}
 		}
