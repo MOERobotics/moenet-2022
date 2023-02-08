@@ -25,6 +25,14 @@ function hashId(item: ItemId): string {
 	}
 }
 
+function setOpacity(mesh: Mesh, opacity: number) {
+	const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+	for (const material of materials) {
+		material.transparent = opacity !== 1;
+		material.opacity = opacity;
+	}
+}
+
 const RETAIN_FRAMES = 100;
 
 export class RFView {
@@ -35,6 +43,8 @@ export class RFView {
 	private readonly cameraTexture: Texture;
 	private readonly fieldTexture: Texture;
 
+	private rfMesh?: Mesh = undefined;
+
 	constructor(private readonly scene: Scene) {
 		const loader = new TextureLoader();
 		FAMILY_16h5.loadTextures();
@@ -43,7 +53,7 @@ export class RFView {
 		this.fieldTexture = loader.load("images/textures/field.png");
 	}
 
-	private validItems(data: DataSource): Array<(ItemId | { type: 'field' }) & Pose3D> {
+	private validItems(data: DataSource): Array<ItemId & Pose3D> {
 		const items = data.items
 			.map(({ poses, ...id }) => {
 				const pose = poses.find(({ frame }) => matchFrame(frame, this.frame));
@@ -52,34 +62,11 @@ export class RFView {
 				const { translation, rotation } = pose;
 				return { translation, rotation, ...id } as ItemId & Pose3D;
 			})
-			.filter((item): item is Pose3D & ItemId => item !== undefined) as Array<(ItemId | { type: 'field' }) & Pose3D>;
-		if (this._frame.type === 'field') {
-			items.push({
-				type: 'field',
-				translation: new Vector3(FIELD_WIDTH / 2,FIELD_HEIGHT / 2,0),
-				rotation: new Quaternion(),
-			});
-		}
+			.filter((item): item is Pose3D & ItemId => item !== undefined) as Array<ItemId & Pose3D>;
 		return items;
 	}
 
-	get frame() {
-		return this._frame;
-	}
-
-	setFrame(frame: ReferenceFrame) {
-		if (matchFrame(frame, this._frame))
-			return false;
-		console.log(`Setting reference frame to:`, frame);
-		this._frame = frame;
-		for (const [item, _] of this.items.values()) {
-			this.scene.remove(item);
-		}
-		this.items.clear();
-		return true;
-	}
-
-	private makeItem(item: ItemId | { type: 'field' }) {
+	private makeItem(item: ItemId) {
 		console.log(`Adding ${item.type}`);
 		switch (item.type) {
 			case 'robot': {
@@ -98,11 +85,53 @@ export class RFView {
 				material.transparent = false;
 				return new Mesh(cameraGeometry, material);
 			}
+		}
+	}
+
+	private buildReferenceFrame(rf: ReferenceFrame): Mesh {
+		switch (rf.type) {
+			case 'robot':
+			case 'camera':
+			case 'tag': {
+				const mesh = this.makeItem(rf);
+				setOpacity(mesh, .5);
+				mesh.position.set(0,0,0);
+				return mesh;
+			}
 			case 'field': {
 				const material = new MeshBasicMaterial({ map: this.fieldTexture });
-				return new Mesh(fieldGeometry, material);
+				const mesh = new Mesh(fieldGeometry, material);
+				mesh.position.set(FIELD_WIDTH / 2, FIELD_HEIGHT / 2, 0);
+				return mesh;
 			}
 		}
+	}
+
+	get frame() {
+		return this._frame;
+	}
+
+	setFrame(frame: ReferenceFrame) {
+		if (matchFrame(frame, this._frame))
+			return false;
+		console.log(`Setting reference frame to:`, frame);
+		this._frame = frame;
+
+		for (const [item, _] of this.items.values()) {
+			this.scene.remove(item);
+		}
+		this.items.clear();
+		if (this.rfMesh !== undefined) {
+			this.scene.remove(this.rfMesh);
+			this.rfMesh = undefined;
+		}
+
+		this.rfMesh = this.buildReferenceFrame(this._frame);
+		if (this.rfMesh !== undefined) {
+			this.scene.add(this.rfMesh);
+		}
+
+		return true;
 	}
 
 	update(data: DataSource) {
@@ -115,33 +144,39 @@ export class RFView {
 				.map(cam => cam.id)
 				.reduce((cam_id, acc) => cam_id > acc ? cam_id : acc, -Infinity);
 			
-			if (Number.isFinite(maxCameraId) && this._frame.id > maxCameraId)
-				this._frame.id %= maxCameraId;
-		} else if (this._frame.type === 'camera' && this._frame.id > FAMILY_16h5.size) {
-			this._frame.id %= FAMILY_16h5.size - 1;
+			if (Number.isFinite(maxCameraId) && this._frame.id > maxCameraId) {
+				this.setFrame({type: this._frame.type, id: this._frame.id % maxCameraId });
+			}
+		} else if (this._frame.type === 'tag' && this._frame.id > FAMILY_16h5.size) {
+			this.setFrame({type: this._frame.type, id: ((this._frame.id - 1) % (FAMILY_16h5.size - 1)) + 1 });
 		}
 
 		const missedItems = new Set(this.items.keys());
 		for (const item of validItems) {
-			const hash = item.type === 'field' ? 'field' : hashId(item);
+			const hash = hashId(item);
 			missedItems.delete(hash);
 			const extant = this.items.get(hash);
+			let translation = item.translation;
+			switch (item.type) {
+				case 'robot':
+					// Offset robot so that the bottom is at the floor
+					translation = new Vector3(0, 0, ROBOT_HEIGHT / 2).add(translation);
+					break;
+			}
+
 			if (extant !== undefined) {
 				const mesh = extant[0];
 				const material = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material);
 				material.transparent = false;
 				material.opacity = 1;
-				mesh.position.copy(item.translation);
+				mesh.position.copy(translation);
 				mesh.quaternion.copy(item.rotation);
 				
 				extant[1] = this.frameId;
-				if (item.type === 'robot') {
-					// extant[0].translateZ(this.frameId * .001);
-				}
 			} else {
 				const mesh = this.makeItem(item)!;
 				this.items.set(hash, [mesh, this.frameId]);
-				mesh.position.copy(item.translation);
+				mesh.position.copy(translation);
 				mesh.quaternion.copy(item.rotation);
 				this.scene.add(mesh);
 			}
