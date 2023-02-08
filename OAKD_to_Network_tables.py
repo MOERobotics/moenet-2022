@@ -1,18 +1,16 @@
-import Network_Tables_Sender as nts
+from typing import Optional, TYPE_CHECKING
 import tag
 
-from typing import Optional
-import cv2
 import depthai as dai
 
 #Special MOE one
-import moe_apriltags as apriltag
+if TYPE_CHECKING:
+    import moe_apriltags as apriltag
 import numpy as np
 
 from scipy.spatial.transform import Rotation as R
 from utils.debug import Debugger, DebugFrame, FieldId, RobotId, CameraId, TagId
 
-#Creating pipeline
 def create_pipeline():
     pipeline = dai.Pipeline()
 
@@ -26,10 +24,6 @@ def create_pipeline():
 
     monocam.out.link(monoout.input)
     return pipeline
-
-debugger = Debugger()
-
-detector = apriltag.Detector(families="tag16h5", nthreads=2)
 
 class Transform:
     translation: np.ndarray
@@ -56,7 +50,6 @@ class Transform:
             rotation = self.rotation * other.rotation,
             translation = self.translation + rotated
         )
-        #return R.concatenate([self, other])
 
 
 camera_rs = Transform(
@@ -66,7 +59,6 @@ camera_rs = Transform(
 
 
 def calculate_pose(det: apriltag.Detection, dbf: Optional[DebugFrame] = None):
-    #negate to account for rotation of tag
     tag_cs = Transform(
         translation=result.pose_t[:,0],
         rotation=R.from_matrix(-result.pose_R)
@@ -86,66 +78,75 @@ def calculate_pose(det: apriltag.Detection, dbf: Optional[DebugFrame] = None):
     robot_cs = camera_rs.inv()
     robot_fs = cam_fs.combine(robot_cs)
 
-    if dbf:
-        field = FieldId()
-        rob = RobotId()
-        cam = CameraId(0)
-        tag = TagId(det.tag_id)
-        dbf.record(tag, cam, tag_cs)
-        dbf.record(cam, tag, cam_ts)
-        dbf.record(tag, field, tag_fs)
-        dbf.record(cam, field, cam_fs)
-        dbf.record(cam, rob, camera_rs)
-        dbf.record(rob, cam, robot_cs)
-        dbf.record(rob, field, robot_fs)
+    if dbf is not None:
+        fs = FieldId()
+        rs = RobotId()
+        cs = CameraId(0)
+        ts = TagId(det.tag_id)
+        dbf.record(ts, cs, tag_cs)
+        dbf.record(cs, ts, cam_ts)
+        dbf.record(ts, fs, tag_fs)
+        dbf.record(cs, fs, cam_fs)
+        dbf.record(cs, rs, camera_rs)
+        dbf.record(rs, cs, robot_cs)
+        dbf.record(rs, fs, robot_fs)
 
     return robot_fs
 
 
-with dai.Device(create_pipeline()) as device:
-    device: dai.Device
-    monoq = device.getOutputQueue(name="mono", maxSize=1, blocking=False)
+if __name__ == '__main__':
+    import Network_Tables_Sender as nts
+    import moe_apriltags as apriltag
 
-    calibdata = device.readCalibration()
-    intrinsics = calibdata.getDefaultIntrinsics(dai.CameraBoardSocket.LEFT)[0]
-    oak_d_camera_params = (
-        intrinsics[0][0],
-        intrinsics[1][1],
-        intrinsics[0][2],
-        intrinsics[1][2],
-    )
+    debugger = Debugger()
 
-    print('ready')
+    detector = apriltag.Detector(families="tag16h5", nthreads=2)
 
-    while True:
-        img = monoq.get().getCvFrame()
-        results: list[apriltag.Detection] = detector.detect(
-            img,
-            l=1,
-            r=8,
-            maxhamming=0,
-            estimate_tag_pose=True,
-            tag_size=.1524,
-            camera_params=oak_d_camera_params
+    with dai.Device(create_pipeline()) as device:
+        device: dai.Device
+        monoq = device.getOutputQueue(name="mono", maxSize=1, blocking=False)
+
+        calibdata = device.readCalibration()
+        intrinsics = calibdata.getDefaultIntrinsics(dai.CameraBoardSocket.LEFT)[0]
+        oak_d_camera_params = (
+            intrinsics[0][0],
+            intrinsics[1][1],
+            intrinsics[0][2],
+            intrinsics[1][2],
         )
 
-        with debugger.frame() as dbf:
-            if dbf is not None:
-                cv2.imshow('foo', img)
-                if cv2.waitKey(1) == ord('q'):
-                    break
+        print('ready')
+
+        while True:
+            img = monoq.get().getCvFrame()
+            results: list[apriltag.Detection] = detector.detect(
+                img,
+                l=1,
+                r=8,
+                maxhamming=0,
+                estimate_tag_pose=True,
+                tag_size=.1524,
+                camera_params=oak_d_camera_params
+            )
+
+            with debugger.frame() as dbf:
+                if dbf is not None:
+                    import cv2
+                    cv2.imshow('foo', img)
+                    if cv2.waitKey(1) == ord('q'):
+                        break
+                
+                if len(results) == 0:
+                    continue
+                
+                results.sort(reverse=True, key = lambda x: x.pose_err)
+                result = results[0]
+
+                rotation_cs = result.pose_R
+                translation_cs = result.pose_t[:,0]
+
+                robot_fs = calculate_pose(result, dbf)
             
-            if len(results) == 0:
-                continue
-            
-            results.sort(reverse=True, key = lambda x: x.pose_err)
-            result = results[0]
 
-            rotation_cs = result.pose_R
-            translation_cs = result.pose_t[:,0]
-
-            robot_fs = calculate_pose(result, dbf)
-        
-
-        pose = [*robot_fs.translation, *robot_fs.rotation.as_quat()]
-        nts.send_pose(pose) #Returns robot in field space.
+            pose = [*robot_fs.translation, *robot_fs.rotation.as_quat()]
+            nts.send_pose(pose) #Returns robot in field space.
