@@ -1,11 +1,12 @@
 import { BoxGeometry, Material, Mesh, MeshBasicMaterial, Quaternion, Scene, Sprite, SpriteMaterial, Texture, TextureLoader, Vector3 } from "three";
 import { AprilTag, FAMILY_16h5 } from "./apriltag";
 import DataSource, { CameraId, ItemId, Pose3D, ReferenceFrame, TagId } from "./data";
-const robotGeometry = new BoxGeometry(1.0, 1.0, 1.0);
-const cameraGeometry = new BoxGeometry(.110, .024, .033);
-const tagGeometry = new BoxGeometry(.001, .152, .152);
+const ROBOT_HEIGHT = 1.0;
 const FIELD_WIDTH = 15.98;
 const FIELD_HEIGHT = 8.21;
+const robotGeometry = new BoxGeometry(ROBOT_HEIGHT, 1.0, 1.0);
+const cameraGeometry = new BoxGeometry(.110, .024, .033);
+const tagGeometry = new BoxGeometry(.001, .152, .152);
 const fieldGeometry = new BoxGeometry(FIELD_WIDTH, FIELD_HEIGHT, .01);
 
 function matchFrame(u: ReferenceFrame, v: ReferenceFrame) {
