@@ -34,7 +34,7 @@ export class AprilTag {
 			throw new RangeError();
 	}
 	get texture(): Texture {
-		return this.family.textures![this.id - 1];
+		return this.family.textures![this.id];
 	}
 }
 

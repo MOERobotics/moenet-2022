@@ -125,7 +125,7 @@ export class FlyControls extends EventDispatcher {
 				this.referenceFrame = { type: 'camera', id: this.referenceFrame.type === 'camera' ? (this.referenceFrame.id + 1) % 4 : 0 };
 				break;
 			case 'Digit4':
-				this.referenceFrame = { type: 'tag', id: this.referenceFrame.type === 'tag' ? (this.referenceFrame.id % 30) + 1 : 1 };
+				this.referenceFrame = { type: 'tag', id: this.referenceFrame.type === 'tag' ? (this.referenceFrame.id + 1) % 30 : 0 };
 				break;
 		}
 
