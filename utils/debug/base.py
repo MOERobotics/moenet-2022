@@ -78,15 +78,16 @@ class DebugFrame:
 
 class Debugger:
     "No-op debugger base class"
-    def frame(self) -> ContextManager[Optional[DebugFrame]]:
+    def frame(self) -> ContextManager[DebugFrame]:
+        "Context manager for debugging a single frame. We will display the frame data when it exits (if applicable)"
+        # We need this inner function for type checking
         @contextmanager
         def helper():
             frame = DebugFrame()
-            try:
-                yield frame
-            finally:
-                self.finish_frame(frame)
+            yield frame
+            self.finish_frame(frame)
         return helper()
     
     def finish_frame(self, frame: DebugFrame):
+        "Overload this method to consume the generated DebugFrame"
         pass
