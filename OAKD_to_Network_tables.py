@@ -57,9 +57,11 @@ class Transform:
         )
 
     def combine(self, other: 'Transform') -> 'Transform':
+        rotated = self.rotation.apply(other.translation)
+            
         return Transform(
-            rotation = R.concatenate(self, other),
-            translation = self.translation + self.rotation.apply(other.translation)
+            rotation = self.rotation * other.rotation,
+            translation = self.translation + rotated
         )
         #return R.concatenate([self, other])
 
