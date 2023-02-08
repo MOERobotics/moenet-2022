@@ -49,8 +49,8 @@ export class RFView {
 		const loader = new TextureLoader();
 		FAMILY_16h5.loadTextures();
 		this.robotTexture = loader.load("images/textures/crate.gif");
-		this.cameraTexture = loader.load("images/textures/foo.gif");
-		this.fieldTexture = loader.load("images/textures/field.png");
+		this.cameraTexture = loader.load("images/textures/oakd-s2.png");
+		this.fieldTexture = loader.load("images/textures/2023-field.png");
 	}
 
 	private validItems(data: DataSource): Array<ItemId & Pose3D> {
