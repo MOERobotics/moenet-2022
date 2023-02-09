@@ -13,7 +13,16 @@ from utils.geom.geom3 import Rotation3D, Transform3D, Pose3D, Translation3D
 from utils.geom.quaternion import Quaternion
 from utils.debug import Debugger, DebugFrame, FieldId, RobotId, CameraId, TagId, WebDebug
 
+debugger_type = None
+"""
+You can set this variable to:
+ - `None` -> no debugging
+ - `"web"` -> runs web server
+"""
 simulate = False
+"""
+Set this to `True` if you want to simulate an apriltag rotating around, instead of using a camera
+"""
 
 camera0_rs = Transform3D(
     Translation3D(0,0,0),
@@ -201,7 +210,7 @@ if __name__ == '__main__':
     import Network_Tables_Sender as nts
     import moe_apriltags as apriltag
 
-    debugger: Debugger = WebDebug()
+    debugger: Debugger = WebDebug() if debugger_type == 'web' else Debugger()
     with (FakeTagDetector() if simulate else OakTagDetector()) as detector:
         print('ready')
 
