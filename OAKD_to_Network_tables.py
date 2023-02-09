@@ -15,32 +15,6 @@ from utils.debug import Debugger, DebugFrame, FieldId, RobotId, CameraId, TagId,
 
 simulate = False
 
-class Transform:
-    translation: np.ndarray
-    rotation: R
-
-    def __init__(self, translation: np.ndarray, rotation: R):
-        translation = np.asarray(translation, dtype=float)
-        if translation.shape != (3,):
-            raise ValueError(f'Shape of translation is {translation.shape}')
-        self.translation = translation
-        self.rotation = rotation
-
-    def inv(self) -> 'Transform':
-        return Transform(
-            rotation = self.rotation.inv(),
-            translation = self.rotation.apply(-self.translation, inverse = True)
-        )
-
-    def combine(self, other: 'Transform') -> 'Transform':
-        rotated = self.rotation.apply(other.translation)
-        if rotated.shape != (3, ):
-            rotated = rotated[0]
-            
-        return Transform(
-            rotation = self.rotation * other.rotation,
-            translation = self.translation + rotated
-        )
 
 class TagDetector:
     camera_rs: Transform3D
