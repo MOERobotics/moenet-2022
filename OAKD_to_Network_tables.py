@@ -13,6 +13,8 @@ from utils.geom.geom3 import Rotation3D, Transform3D, Pose3D, Translation3D
 from utils.geom.quaternion import Quaternion
 from utils.debug import Debugger, DebugFrame, FieldId, RobotId, CameraId, TagId, WebDebug
 
+simulate = False
+
 class Transform:
     translation: np.ndarray
     rotation: R
@@ -212,7 +214,7 @@ if __name__ == '__main__':
     import moe_apriltags as apriltag
 
     debugger: Debugger = WebDebug()
-    with OakTagDetector() as detector:
+    with (FakeTagDetector() if simulate else OakTagDetector()) as detector:
         print('ready')
 
         while True:
