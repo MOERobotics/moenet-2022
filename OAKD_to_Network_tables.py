@@ -139,8 +139,18 @@ class FakeTagDetector(TagDetector):
 
 
 def robot_from_tag(tag_cs: Transform3D, tag_id: int, camera_rs: Transform3D, camera_id: int, dbf: Optional[DebugFrame] = None):
+    """
+    Compute the robot pose (`robot_fs`) from a tag detection (`tag_cs`)
+
+    ## Parameters
+    - `tag_cs` Detected tag pose, in camera space
+    - `tag_id` AprilTag ID of detected tag
+    - `camera_rs` Pose of camera that detected the tag, in robot space
+    - `camera_id` ID of camera that detected the tag
+    - `dbf` Debugging frame (optional)
+    """
+
     cam_ts = -tag_cs
-    # cam_ts.translation *= -1
 
     tag_tl_fs = tag.tag_translation[tag_id]
     tag_ro_fs = tag.tag_rotation[tag_id].as_quat()
