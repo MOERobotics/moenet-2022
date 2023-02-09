@@ -15,8 +15,16 @@ from utils.debug import Debugger, DebugFrame, FieldId, RobotId, CameraId, TagId,
 
 simulate = False
 
+camera0_rs = Transform3D(
+    Translation3D(0,0,0),
+    Rotation3D.identity()
+    # + Rotation3D.from_axis_angle([1,0,0], 90, degrees=True)
+    # + Rotation3D.from_axis_angle([0,1,0], 180, degrees=True)
+    # + Rotation3D.from_axis_angle([1,0,0], 90, degrees=True)
+)
 
 class TagDetector:
+    camera_id: int
     camera_rs: Transform3D
     def detect(self) -> list[tuple[int, Transform3D]]:
         return []
@@ -45,13 +53,8 @@ class OakTagDetector(TagDetector):
         return pipeline
     
     def __init__(self) -> None:
-        self.camera_rs = Transform3D(
-            Translation3D(0,0,0),
-            Rotation3D.identity()
-            # + Rotation3D.from_axis_angle([1,0,0], 90, degrees=True)
-            # + Rotation3D.from_axis_angle([0,1,0], 180, degrees=True)
-            # + Rotation3D.from_axis_angle([1,0,0], 90, degrees=True)
-        )
+        self.camera_id = 0
+        self.camera_rs = camera0_rs
 
         self.detector = apriltag.Detector(families="tag16h5", nthreads=2)
     
@@ -111,7 +114,8 @@ class OakTagDetector(TagDetector):
 
 class FakeTagDetector(TagDetector):
     def __init__(self):
-        self.camera_rs = Transform3D.identity()
+        self.camera_id = 0
+        self.camera_rs = camera0_rs
         self.i = 0
     
     def detect(self) -> list[tuple[int, Transform3D]]:
@@ -134,7 +138,7 @@ class FakeTagDetector(TagDetector):
         ]
 
 
-def robot_from_tag(tag_cs: Transform3D, tag_id: int, camera_rs: Transform3D, dbf: Optional[DebugFrame] = None):
+def robot_from_tag(tag_cs: Transform3D, tag_id: int, camera_rs: Transform3D, camera_id: int, dbf: Optional[DebugFrame] = None):
     cam_ts = -tag_cs
     # cam_ts.translation *= -1
 
@@ -164,7 +168,7 @@ def robot_from_tag(tag_cs: Transform3D, tag_id: int, camera_rs: Transform3D, dbf
     if dbf is not None:
         fs = FieldId()
         rs = RobotId()
-        cs = CameraId(0)
+        cs = CameraId(camera_id)
         ts = TagId(tag_id)
 
         dbf.record(ts, cs, tag_cs)
@@ -203,7 +207,7 @@ if __name__ == '__main__':
                 for other_id, other_pose in detections[1:]:
                     dbf.record(TagId(other_id), CameraId(0), other_pose)
                 
-                robot_fs = robot_from_tag(detection[1], detection[0], detector.camera_rs, dbf)
+                robot_fs = robot_from_tag(detection[1], detection[0], detector.camera_rs, detector.camera_id, dbf)
             
             tl = robot_fs.translation
             q = robot_fs.rotation.to_quaternion()
