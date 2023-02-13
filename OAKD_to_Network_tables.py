@@ -73,7 +73,7 @@ class OakTagDetector(TagDetector):
         device: dai.Device = self._device.__enter__()
         self.monoq = device.getOutputQueue(name="mono", maxSize=1, blocking=False)
         calibdata = device.readCalibration()
-        intrinsics = calibdata.getDefaultIntrinsics(dai.CameraBoardSocket.LEFT)[0]
+        intrinsics = calibdata.getCameraIntrinsics(dai.CameraBoardSocket.LEFT, destShape=(600,400))
         self._camera_params = (
             intrinsics[0][0],
             intrinsics[1][1],
