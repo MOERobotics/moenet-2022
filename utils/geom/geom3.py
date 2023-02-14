@@ -541,6 +541,10 @@ class Transform3D:
         )
 
     def __init__(self, translation: Translation3D, rotation: Rotation3D):
+        if not isinstance(translation, Translation3D):
+            raise TypeError('translation should be Translation3D')
+        if not isinstance(rotation, Rotation3D):
+            raise TypeError('rotation should be Rotation3D')
         self.translation = translation
         self.rotation = rotation
     
@@ -662,6 +666,10 @@ class Pose3D(Interpolable['Pose3D']):
         )
 
     def __init__(self, translation: Translation3D, rotation: Rotation3D):
+        if not isinstance(translation, Translation3D):
+            raise TypeError('translation should be Translation3D')
+        if not isinstance(rotation, Rotation3D):
+            raise TypeError('rotation should be Rotation3D')
         self.translation = translation
         "The translation component of this pose"
         self.rotation = rotation
