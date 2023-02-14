@@ -68,7 +68,7 @@ class Rotation3D(Interpolable['Rotation3D']):
         return Rotation3D(q)
     
     @staticmethod
-    def from_axis_angle(axis: 'np.ndarray', angle: float, *, degrees: bool = False) -> 'Rotation3D':
+    def from_axis_angle(axis: Union['np.ndarray[float, Literal[3]]', Literal['x'], Literal['y'], Literal['z']], angle: float, *, degrees: bool = False) -> 'Rotation3D':
         """
         Constructs a Rotation3d with the given axis-angle representation. The axis doesn't have to be
         normalized.
@@ -78,7 +78,15 @@ class Rotation3D(Interpolable['Rotation3D']):
          - `angle` Rotation around the axis
          - `degrees` If true, angle is in degrees (otherwise it's in radians)
         """
-        axis = assert_npshape(axis, (3,), 'axis', dtype=float)
+        match axis:
+            case 'x':
+                axis = np.array([1,0,0], dtype=float)
+            case 'y':
+                axis = np.array([0,1,0], dtype=float)
+            case 'z':
+                axis = np.array([0,0,1], dtype=float)
+            case _:
+                axis = assert_npshape(axis, (3,), 'axis', dtype=float)
         
         if degrees:
             angle = np.deg2rad(float(angle))
