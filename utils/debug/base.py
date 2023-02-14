@@ -3,26 +3,42 @@ from contextlib import contextmanager
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 if TYPE_CHECKING:
-    from ..geom.geom3 import Rotation3D, Translation3D
+    from ..geom.geom3 import Rotation3D, Translation3D, Pose3D
 
 class FieldId:
     "Field reference frame"
     def __init__(self):
         self.type = 'field'
+    def __hash__(self) -> int:
+        return hash(FieldId)
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, FieldId)
 class RobotId:
     "Robot object id/reference frame"
     def __init__(self):
         self.type = 'robot'
+    def __hash__(self) -> int:
+        return hash(RobotId)
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, RobotId)
 class TagId:
     "Tag object id/reference frame"
     def __init__(self, id: int):
         self.type = 'tag'
         self.id = id
+    def __hash__(self) -> int:
+        return hash(('tag', self.id))
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, TagId) and other.id == self.id
 class CameraId:
     "Camera object id/reference frame"
     def __init__(self, id: int):
         self.type = 'camera'
         self.id = id
+    def __hash__(self) -> int:
+        return hash(('camera', self.id))
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, CameraId) and other.id == self.id
 
 ReferenceFrame = Union[FieldId, RobotId, TagId, CameraId]
 "Reference frames ids"
