@@ -1,11 +1,15 @@
 from .base import Debugger, DebugFrame, ReferenceFrame, ItemId
-import matplotlib.pyplot as plt
 import numpy as np
 
 class GraphDebug(Debugger):
     "Debug game objects by plotting them"
     def __init__(self, rf: ReferenceFrame, item: ItemId, buffer_len: int = 100) -> None:
         super().__init__()
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError:
+            print("Install matplotlib with 'pip install matplotlib'")
+            raise
 
         self.buffer = list()
         self.buffer_len = buffer_len
@@ -25,6 +29,8 @@ class GraphDebug(Debugger):
             return
         
         self.buffer.append(pose[0])
+
+        import matplotlib.pyplot as plt
 
         ax1 = self.ax1
         b = np.array(self.buffer)
