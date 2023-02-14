@@ -19,6 +19,8 @@ class EulerAngles(NamedTuple):
 
 
 class Rotation3D(Interpolable['Rotation3D']):
+    "A rotation in a 3D coordinate frame represented by a quaternion"
+
     @staticmethod
     def identity():
         "Identity rotation"
@@ -135,6 +137,7 @@ class Rotation3D(Interpolable['Rotation3D']):
     
     @staticmethod
     def from_quaternion(q: Quaternion) -> 'Rotation3D':
+        "Construct a Rotation3d from a quaternion."
         return Rotation3D(q)
     
     @staticmethod
@@ -376,6 +379,8 @@ class Rotation3D(Interpolable['Rotation3D']):
             return self + (delta * t)
 
 class Translation3D(Interpolable['Translation3D']):
+    "Represents a translation in 3D space. This object can be used to represent a point or a vector."
+
     @staticmethod
     def identity():
         "Identity translation"
@@ -634,8 +639,11 @@ def rotationVectorToMatrix(rotation: np.ndarray):
     ])
 
 class Pose3D(Interpolable['Pose3D']):
+    "Represents a 3D pose containing translational and rotational elements."
+
     @staticmethod
     def zero():
+        "A pose at the origin facing toward the positive X axis."
         return Pose3D(Translation3D.identity(), Rotation3D.identity())
     
     @staticmethod
@@ -647,25 +655,54 @@ class Pose3D(Interpolable['Pose3D']):
 
     def __init__(self, translation: Translation3D, rotation: Rotation3D):
         self.translation = translation
+        "The translation component of this pose"
         self.rotation = rotation
+        "The rotation component of this pose"
     
     @property
     def x(self):
+        "The X component of the pose's translation."
         return self.translation.x
     
     @property
     def y(self):
+        "The Y component of the pose's translation."
         return self.translation.y
     
     @property
     def z(self):
+        "The Z component of the pose's translation."
         return self.translation.z
 
     def relative_to(self, other: 'Pose3D'):
+        """
+        Returns the other pose relative to the current pose.
+   
+        This function can often be used for trajectory tracking or pose stabilization algorithms to
+        get the error between the reference and the current pose.
+        """
         transform = Transform3D.between(other, self)
         return Pose3D.from_transform(transform)
     
     def exp(self, twist: Twist3D) -> 'Pose3D':
+        """
+		Obtain a new Pose3d from a (constant curvature) velocity.
+	
+		The twist is a change in pose in the robot's coordinate frame since the previous pose
+		update. When the user runs exp() on the previous known field-relative pose with the argument
+		being the twist, the user will receive the new field-relative pose.
+	
+		"Exp" represents the pose exponential, which is solving a differential equation moving the
+		pose forward in time.
+	
+        ## Parameters
+		- `twist` The change in pose in the robot's coordinate frame since the previous pose update.
+			For example, if a non-holonomic robot moves forward 0.01 meters and changes angle by 0.5
+			degrees since the previous pose update, the twist would be Twist3d(0.01, 0.0, 0.0, new new
+			Rotation3d(0.0, 0.0, Units.degreesToRadians(0.5))).
+        ## Returns
+        The new pose of the robot.
+		"""
         # Implementation from Section 3.2 of https://ethaneade.org/lie.pdf
         u = twist.d_translation
         rvec = twist.d_rotation
@@ -701,7 +738,7 @@ class Pose3D(Interpolable['Pose3D']):
         return self + transform
 
     def log(self, end: 'Pose3D') -> Twist3D:
-        "Returns a Twist2d that maps this pose to the end pose. If c is the output of {@code a.Log(b)}, then {@code a.Exp(c)} would yield b."
+        "Returns a Twist2d that maps this pose to the end pose. If c is the output of `a.Log(b)`, then `a.Exp(c)` would yield b."
         # Implementation from Section 3.2 of https://ethaneade.org/lie.pdf
         transform = end.relative_to(self)
 
@@ -738,8 +775,9 @@ class Pose3D(Interpolable['Pose3D']):
         )
     
     def to_2d(self) -> Pose2D:
+        "Project this pose onto the x-y plane"
         return Pose2D(
-            self.translation.as_2d(),
+            self.translation.to_2d(),
             self.rotation.to_2d(),
         )
     
