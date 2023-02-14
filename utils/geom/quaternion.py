@@ -152,10 +152,10 @@ class Quaternion:
 		elif isinstance(other, Quaternion):
 			# https://en.wikipedia.org/wiki/Quaternion#Scalar_and_vector_parts
 			# v₁ x v₂
-			slf_w = self._components[0]
-			slf_v = self._components[1:]
-			oth_w = other._components[0]
-			oth_v = other._components[1:]
+			slf_w = self.w
+			slf_v = self.vector_part()
+			oth_w = other.w
+			oth_v = other.vector_part()
 			cross = np.cross(slf_v, oth_v)
 			# v = r₁v₂ + r₂v₁ + v₁ x v₂
 			v = (oth_v * slf_w) + (slf_v * oth_w) + cross
