@@ -90,6 +90,13 @@ class OakTagDetector(TagDetector):
     def detect(self) -> list[tuple[int, Transform3D]]:
         frame: 'dai.ImgFrame' = self.monoq.get()
         img: np.ndarray = frame.getCvFrame()
+
+        if True:
+            import cv2
+            cv2.imshow('foo', img)
+            if cv2.waitKey(1) == ord('q'):
+                raise StopIteration
+        
         detections: list[apriltag.Detection] = self.detector.detect(
             img,
             l=1,
@@ -109,12 +116,6 @@ class OakTagDetector(TagDetector):
             Translation3D(detection.pose_t[:,0] * [-1,-1,1]),
             rotation=-Rotation3D.from_rotation_matrix(detection.pose_R)
         )
-
-        if True:
-            import cv2
-            cv2.imshow('foo', img)
-            if cv2.waitKey(1) == ord('q'):
-                raise StopIteration
         
         return [
             (detection.tag_id, tag_cs)
