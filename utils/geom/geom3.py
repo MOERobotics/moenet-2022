@@ -272,6 +272,55 @@ class Rotation3D(Interpolable['Rotation3D']):
     def to_quaternion(self) -> Quaternion:
         "Get rotation as quaternion"
         return self._q
+
+    def to_matrix(self) -> np.ndarray[float, tuple[Literal[3], Literal[3]]]:
+        quat = self.to_quaternion()
+        matrix = np.empty((3,3), dtype=float)
+
+        x = quat.x
+        y = quat.y
+        z = quat.z
+        w = quat.w
+
+        x2 = x * x
+        y2 = y * y
+        z2 = z * z
+        w2 = w * w
+
+        xy = x * y
+        zw = z * w
+        xz = x * z
+        yw = y * w
+        yz = y * z
+        xw = x * w
+
+        matrix[0, 0] = x2 - y2 - z2 + w2
+        matrix[1, 0] = 2 * (xy + zw)
+        matrix[2, 0] = 2 * (xz - yw)
+
+        matrix[0, 1] = 2 * (xy - zw)
+        matrix[1, 1] = - x2 + y2 - z2 + w2
+        matrix[2, 1] = 2 * (yz + xw)
+
+        matrix[0, 2] = 2 * (xz + yw)
+        matrix[1, 2] = 2 * (yz - xw)
+        matrix[2, 2] = - x2 - y2 + z2 + w2
+
+        return matrix
+    
+    def to_euler(self, *, degrees: bool = False) -> EulerAngles:
+        pitch = self.x
+        roll = self.y
+        yaw = self.z
+        if degrees:
+            pitch = np.rad2deg(pitch)
+            roll = np.rad2deg(roll)
+            yaw = np.rad2deg(yaw)
+        return EulerAngles(
+            pitch=pitch,
+            roll=roll,
+            yaw=yaw,
+        )
     
     def to_axis_angle(self, *, degrees: bool = False) -> AxisAngle:
         "Get rotation in axis-angle format"
