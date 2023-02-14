@@ -1,18 +1,36 @@
 import json
-import numpy as np
-from scipy.spatial.transform import Rotation as R
+from utils.geom.geom3 import Pose3D, Translation3D, Rotation3D
+from utils.geom.quaternion import Quaternion
 
 tagf = open('tags.json')
 
 data = json.load(tagf)
 
-tag_translation = [0]*9
-tag_rotation = [0]*9
-
-for tag in data["tags"]:
+def parse_tag(tag):
     pose = tag['pose']
     posvec = [float(pos) for pos in pose['translation'].values()]
-    tag_translation[tag['ID']] = np.array(posvec)
 
-    rotation = pose["rotation"]['quaternion'] 
-    tag_rotation[tag['ID']] = R.from_quat([rotation['X'], rotation['Y'], rotation['Z'], rotation['W']])
+    translation = Translation3D(
+        pose['translation']['x'],
+        pose['translation']['y'],
+        pose['translation']['z'],
+    )
+
+    quat = pose['rotation']['quaternion']
+    rotation = Rotation3D(
+        Quaternion(
+            quat['W'],
+            quat['X'],
+            quat['Y'],
+            quat['Z'],
+        )
+    )
+    return Pose3D(
+        translation,
+        rotation,
+    )
+
+tags = {
+    tag['ID']: parse_tag(tag)
+    for tag in data['tags']
+}
