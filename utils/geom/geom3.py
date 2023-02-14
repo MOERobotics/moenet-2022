@@ -202,7 +202,7 @@ class Rotation3D(Interpolable['Rotation3D']):
     
     @property
     def y(self) -> float:
-        "The counterclockwise rotation angle around the Y axis (roll) in radians."
+        "The counterclockwise rotation angle around the Y axis (pitch) in radians."
         w = self._q.w
         x = self._q.x
         y = self._q.y
@@ -217,7 +217,7 @@ class Rotation3D(Interpolable['Rotation3D']):
     
     @property
     def z(self) -> float:
-        "The counterclockwise rotation angle around the Z axis (roll) in radians."
+        "The counterclockwise rotation angle around the Z axis (yaw) in radians."
         w = self._q.w
         x = self._q.x
         y = self._q.y
@@ -317,16 +317,16 @@ class Rotation3D(Interpolable['Rotation3D']):
         return matrix
     
     def to_euler(self, *, degrees: bool = False) -> EulerAngles:
-        pitch = self.x
-        roll = self.y
+        roll = self.x
+        pitch = self.y
         yaw = self.z
         if degrees:
-            pitch = np.rad2deg(pitch)
             roll = np.rad2deg(roll)
+            pitch = np.rad2deg(pitch)
             yaw = np.rad2deg(yaw)
         return EulerAngles(
-            pitch=pitch,
             roll=roll,
+            pitch=pitch,
             yaw=yaw,
         )
     
