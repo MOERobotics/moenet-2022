@@ -158,30 +158,14 @@ def robot_from_tag(tag_cs: Transform3D, tag_id: int, camera_rs: Transform3D, cam
     - `dbf` Debugging frame (optional)
     """
 
-    cam_ts = -tag_cs
+    camera_ts = -tag_cs
 
-    tag_tl_fs = tag.tag_translation[tag_id]
-    tag_ro_fs = tag.tag_rotation[tag_id].as_quat()
+    tag_fs = tag.tags[tag_id]
 
-    tag_fs = Transform3D(
-        translation=Translation3D(tag_tl_fs),
-        rotation=Rotation3D.from_quaternion(Quaternion(tag_ro_fs))
-    )
-
-    cam_fs = tag_fs + cam_ts #Transforms camera in field space to tag in field space. Camera in robot space is then transformed into robot in camera space, which allows us to get robot in field space.
+    cam_fs = tag_fs.transform_by(camera_ts)
     robot_cs = -camera_rs
-    robot_fs = cam_fs + robot_cs
-
-    tag_fs = Transform3D(
-        Translation3D(tag_tl_fs),
-        Rotation3D.from_quaternion(Quaternion(tag_ro_fs[3], tag_ro_fs[0], tag_ro_fs[1], tag_ro_fs[2]))
-        # + Rotation3D.from_axis_angle([0,1,0], 90, degrees=True)
-        # + Rotation3D.from_axis_angle([0,1,0], -90, degrees=True)
-    )
-
-    cam_fs = Pose3D.from_transform(tag_fs).transform_by(cam_ts) #Transforms camera in field space to tag in field space. Camera in robot space is then transformed into robot in camera space, which allows us to get robot in field space.
-    robot_cs = -camera_rs
-    robot_fs = robot_cs + Transform3D.between(Pose3D.zero(), cam_fs)
+    # Translation works, but camera_rs having rotation is broken
+    robot_fs = cam_fs.transform_by(camera_rs)
 
     if dbf is not None:
         fs = FieldId()
@@ -192,10 +176,14 @@ def robot_from_tag(tag_cs: Transform3D, tag_id: int, camera_rs: Transform3D, cam
         dbf.record(ts, cs, tag_cs)
         # dbf.record(rs, cs, robot_cs)
 
-        dbf.record(cs, ts, cam_ts)
+        dbf.record(cs, ts, camera_ts)
+        # robot_ts = Pose3D.from_transform(robot_cs).transform_by(-camera_ts) # Good
+        robot_ts = Pose3D.from_transform(camera_rs).relative_to(Pose3D.from_transform(tag_cs)) # Good
+        dbf.record(rs, ts, robot_ts)
 
         dbf.record(cs, rs, camera_rs)
-        tag_rs = cam_ts + robot_cs
+        tag_rs = Pose3D.from_transform(camera_ts).relative_to(Pose3D.from_transform(robot_cs))
+        # tag_rs = -Transform3D(robot_ts.translation, robot_ts.rotation)
         dbf.record(ts, rs, tag_rs)
         
         dbf.record(ts, fs, tag_fs)
