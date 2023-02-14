@@ -71,6 +71,13 @@ class DebugFrame:
             return None
         return poses.get(frame, None)
 
+    def get_pose(self, item: ItemId, reference_frame: ReferenceFrame) -> 'Pose3D':
+        from ..geom import Pose3D, Translation3D, Rotation3D, Quaternion
+        raw = self[item, reference_frame]
+        if raw is None:
+            raise RuntimeError()
+        return Pose3D(Translation3D(raw[0]), Rotation3D(Quaternion(raw[1])))
+
     def record(self, item: ItemId, reference_frame: ReferenceFrame, pose: PoseLike):
         "Record pose"
         if isinstance(pose.translation, np.ndarray):
