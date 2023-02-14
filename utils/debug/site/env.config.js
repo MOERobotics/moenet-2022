@@ -15,6 +15,7 @@ const entryConfig = [
 const copyPluginPatterns = {
     patterns: [
         { from: "./src/assets/images", to: "images" },
+        { from: "./src/assets/models", to: "models" },
         // { from: "./src/assets/fonts", to: "fonts" },
         // { from: "./src/assets/vendor", to: "js" },
     ]

@@ -52,7 +52,7 @@ module.exports = (env, options) =>
                     },
                 },
                 {
-                    test: /\.(woff(2)?|eot|ttf|otf|svg|)$/,
+                    test: /\.(woff(2)?|eot|ttf|otf|svg|glb|obj)$/,
                     type: "javascript/auto",
                     exclude: /images/,
                     loader: "file-loader",
