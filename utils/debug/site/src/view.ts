@@ -7,7 +7,7 @@ const FIELD_HEIGHT = 8.21;
 const TAG_SIZE = .152;
 const robotGeometry = new BoxGeometry(ROBOT_HEIGHT, 1.0, 1.0);
 const cameraGeometry = new BoxGeometry(.110, .024, .033);
-const tagGeometry = new BoxGeometry(TAG_SIZE, TAG_SIZE, .001);
+const tagGeometry = new BoxGeometry(.001, TAG_SIZE, TAG_SIZE);
 const fieldGeometry = new BoxGeometry(FIELD_WIDTH, FIELD_HEIGHT, .01);
 
 function matchFrame(u: ReferenceFrame, v: ReferenceFrame) {
@@ -76,8 +76,15 @@ export class RFView {
 			}
 			case 'tag': {
 				const texture = new AprilTag(FAMILY_16h5, item.id).texture;
-				const material = new MeshBasicMaterial({ map: texture });
-				return new Mesh(tagGeometry, material);
+				const cubeMaterials = [
+					new MeshBasicMaterial({map: texture }),
+					new MeshBasicMaterial({map: this.robotTexture }),
+					new MeshBasicMaterial({map: this.robotTexture }),
+					new MeshBasicMaterial({map: this.robotTexture }),
+					new MeshBasicMaterial({map: this.robotTexture }),
+					new MeshBasicMaterial({map: this.robotTexture }),
+				];
+				return new Mesh(tagGeometry, cubeMaterials);
 			}
 			case 'camera': {
 				const material = new MeshBasicMaterial({ map: this.cameraTexture });
