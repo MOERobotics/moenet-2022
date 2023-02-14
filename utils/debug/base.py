@@ -44,7 +44,10 @@ ReferenceFrame = Union[FieldId, RobotId, TagId, CameraId]
 "Reference frames ids"
 
 ItemId = Union[RobotId, TagId, CameraId]
-"Game item ids"
+"Game item ids (things that can be seen in the debugger)"
+
+ObjectId = TagId
+"Game object ids"
 
 class PoseLike(Protocol):
     "Abstraction of a pose for debugging"

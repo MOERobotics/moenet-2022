@@ -1,6 +1,6 @@
 import { BoxGeometry, Euler, Material, Mesh, MeshBasicMaterial, Quaternion, Scene, Sprite, SpriteMaterial, Texture, TextureLoader, Vector3 } from "three";
 import { AprilTag, FAMILY_16h5 } from "./apriltag";
-import DataSource, { CameraId, ItemId, Pose3D, ReferenceFrame, TagId } from "./data";
+import DataSource, { CameraId, ItemId, Pose3D, ReferenceFrame } from "./data";
 const ROBOT_HEIGHT = 1.0;
 const FIELD_WIDTH = 15.98;
 const FIELD_HEIGHT = 8.21;
@@ -22,6 +22,8 @@ function hashId(item: ItemId): string {
 			return item.type;
 		case 'camera':
 		case 'tag':
+		case 'cone':
+		case 'cube':
 			return `${item.type}:${item.id}`;
 	}
 }
@@ -89,6 +91,12 @@ export class RFView {
 			case 'camera': {
 				const material = new MeshBasicMaterial({ map: this.cameraTexture });
 				return new Mesh(cameraGeometry, material);
+			}
+			case 'cone': {
+				throw new RangeError();
+			}
+			case 'cube': {
+				throw new RangeError();
 			}
 		}
 	}

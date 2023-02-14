@@ -16,8 +16,10 @@ export type TagId = { type: 'tag'; id: number };
 export type CameraId = { type: 'camera'; id: number };
 export type RobotId = { type: 'robot' };
 export type FieldId = { type: 'field' };
+export type ConeId = { type: 'cone'; id: number };
+export type CubeId = { type: 'cube'; id: number };
 export type ReferenceFrame = TagId | CameraId | RobotId | FieldId;
-export type ItemId = TagId | CameraId | RobotId;
+export type ItemId = TagId | CameraId | RobotId | ConeId | CubeId;
 
 export interface Pose3D {
 	translation: Vector3,
