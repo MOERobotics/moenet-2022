@@ -9,6 +9,14 @@ class AxisAngle(NamedTuple):
     axis: np.ndarray
     angle: float
 
+class EulerAngles(NamedTuple):
+    roll: float
+    pitch: float
+    yaw: float
+
+    def __str__(self) -> str:
+        return f'EulerAngles(pitch={self.pitch:2.1f}, roll={self.roll:2.1f}, yaw={self.yaw:2.1f})'
+
 
 class Rotation3D(Interpolable['Rotation3D']):
     @staticmethod
