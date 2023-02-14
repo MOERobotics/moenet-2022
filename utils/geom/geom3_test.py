@@ -373,7 +373,7 @@ class Translation3DTest(TestCase):
         translation = Translation3D(1, 2, 3)
         expected = Translation2D(1, 2)
 
-        self.assertEqual(expected, translation.as_2d())
+        self.assertEqual(expected, translation.to_2d())
 
     def test_mul(self):
         original = Translation3D(3, 5, 7)
@@ -687,4 +687,4 @@ class Pose3DTest(TestCase):
         )
         expected = Pose2D(Translation2D(1, 2), Rotation2D.from_degrees(40))
 
-        self.assertEqual(expected, pose.as_2d())
+        self.assertEqual(expected, pose.to_2d())

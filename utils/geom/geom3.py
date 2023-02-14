@@ -466,7 +466,8 @@ class Translation3D(Interpolable['Translation3D']):
             return Translation3D(self._v / float(scalar))
         return NotImplemented
     
-    def as_2d(self) -> Translation2D:
+    def to_2d(self) -> Translation2D:
+        "Project translation down to the x/y plane"
         return Translation2D(
             self._v[0],
             self._v[1]
@@ -728,7 +729,7 @@ class Pose3D(Interpolable['Pose3D']):
             self.rotation + other.rotation
         )
     
-    def as_2d(self) -> Pose2D:
+    def to_2d(self) -> Pose2D:
         return Pose2D(
             self.translation.as_2d(),
             self.rotation.to_2d(),
