@@ -8,9 +8,7 @@ if TYPE_CHECKING:
     import depthai as dai
 import numpy as np
 
-from scipy.spatial.transform import Rotation as R
 from utils.geom.geom3 import Rotation3D, Transform3D, Pose3D, Translation3D
-from utils.geom.quaternion import Quaternion
 from utils.debug import Debugger, DebugFrame, FieldId, RobotId, CameraId, TagId, WebDebug
 
 debugger_type = 'web'
