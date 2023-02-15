@@ -122,8 +122,6 @@ class OakTagDetector(TagDetector):
             rotation=Rotation3D.from_rotation_matrix(detection.pose_R)
         )
         
-        print(detection.pose_R)
-
         return [
             (detection.tag_id, tag_cs)
         ]
@@ -193,7 +191,7 @@ def robot_from_tag(tag_cs: Transform3D, tag_id: int, camera_rs: Transform3D, cam
     # Translation works, but camera_rs having rotation is broken
     robot_fs = camera_fs.transform_by(robot_cs)
 
-    robot_fs = camera_tcs
+    robot_fs = camera_ts
 
     if dbf is not None:
         fs = FieldId()
