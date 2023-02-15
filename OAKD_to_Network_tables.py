@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Optional, TYPE_CHECKING
 import tag
+import numpy as np
 
 if TYPE_CHECKING:
     # Only load these modules if we need them
@@ -24,7 +25,12 @@ Set this to `True` if you want to simulate an apriltag rotating around, instead 
 
 camera0_rs = Transform3D(
     Translation3D(0,0,0),
-    Rotation3D.identity()
+    Rotation3D.from_rotation_matrix(np.array(
+                                    [[ 0, 0, 1],
+                                     [-1, 0, 0],
+                                     [ 0,-1, 0]]
+                                   ))
+    # Rotation3D.identity()
     # + Rotation3D.from_axis_angle([1,0,0], 90, degrees=True)
     # + Rotation3D.from_axis_angle([0,1,0], 180, degrees=True)
     # + Rotation3D.from_axis_angle([1,0,0], 90, degrees=True)
@@ -110,11 +116,14 @@ class OakTagDetector(TagDetector):
         detections.sort(reverse=True, key = lambda x: x.pose_err)
         detection = detections[0]
         
+        #rotation object is for the back of the apriltag
         tag_cs = Transform3D(
-            Translation3D(detection.pose_t[:,0] * [-1,-1,1]),
-            rotation=-Rotation3D.from_rotation_matrix(detection.pose_R)
+            Translation3D(detection.pose_t[:,0]),
+            rotation=Rotation3D.from_rotation_matrix(detection.pose_R)
         )
         
+        print(detection.pose_R)
+
         return [
             (detection.tag_id, tag_cs)
         ]
@@ -158,14 +167,33 @@ def robot_from_tag(tag_cs: Transform3D, tag_id: int, camera_rs: Transform3D, cam
     - `dbf` Debugging frame (optional)
     """
 
-    camera_ts = -tag_cs
+    #camera in tag space but using camera like axes, z axis is normal to tag
+    camera_tcs = -tag_cs
 
+    #----Works Up Till Here ------
+
+    #tag in field space, this assumes x axis is normal to tag
     tag_fs = tag.tags[tag_id]
 
-    cam_fs = tag_fs.transform_by(camera_ts)
+    #What tag camera space looks like in tag space
+    tcs_ts : Pose3D = Pose3D(Translation3D(0,0,0),
+                        Rotation3D.from_rotation_matrix(np.array(
+                            [[0, 0,-1],
+                             [1, 0, 0],
+                             [0,-1, 0]]
+                        )))
+
+    #go from tag camera space to tag space
+    camera_ts = tcs_ts.transform_by(camera_tcs)
+
+    camera_fs = tag_fs.transform_by(camera_ts)
+
     robot_cs = -camera_rs
+    
     # Translation works, but camera_rs having rotation is broken
-    robot_fs = cam_fs.transform_by(camera_rs)
+    robot_fs = camera_fs.transform_by(robot_cs)
+
+    robot_fs = camera_tcs
 
     if dbf is not None:
         fs = FieldId()
@@ -187,7 +215,7 @@ def robot_from_tag(tag_cs: Transform3D, tag_id: int, camera_rs: Transform3D, cam
         dbf.record(ts, rs, tag_rs)
         
         dbf.record(ts, fs, tag_fs)
-        dbf.record(cs, fs, cam_fs)
+        dbf.record(cs, fs, camera_fs)
         dbf.record(rs, fs, robot_fs)
 
     return robot_fs
@@ -217,6 +245,8 @@ if __name__ == '__main__':
             
             tl = robot_fs.translation
             q = robot_fs.rotation.to_quaternion()
+
+            print(tl.x, tl.y, tl.z)
 
             pose = [tl.x, tl.y, tl.z, q.w, q.x, q.y, q.z]
             nts.send_pose(pose) #Returns robot in field space.
