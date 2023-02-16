@@ -238,7 +238,7 @@ export class RFView {
 			const item = this.items.get(itemName);
 			if (item === undefined)
 				continue;
-			const [mesh, lastSeen] = item;
+			const { main, axes, lastSeen } = item;
 			const framesSinceSeen = this.frameId - lastSeen;
 			if (framesSinceSeen > RETAIN_FRAMES) {
 				this.scene.remove(main);
