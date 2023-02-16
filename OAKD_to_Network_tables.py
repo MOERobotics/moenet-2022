@@ -74,7 +74,10 @@ class OakTagDetector(TagDetector):
     def __init__(self) -> None:
         self.camera_id = 0
         self.camera_rs = camera0_rs
+
+        import moe_apriltags as apriltag
         try:
+            # On windows we need to import this because of some weird dependency
             import pupil_apriltags
         except ImportError:
             pass
@@ -229,7 +232,6 @@ def robot_from_tag(tag_cs: Transform3D, tag_id: int, camera_rs: Transform3D, cam
 
 if __name__ == '__main__':
     import Network_Tables_Sender as nts
-    import moe_apriltags as apriltag
 
     debugger: Debugger = WebDebug() if debugger_type == 'web' else Debugger()
     with (FakeTagDetector() if simulate else OakTagDetector()) as detector:
