@@ -49,11 +49,11 @@ export class RFView {
 	private rfMesh?: Mesh = undefined;
 
 	constructor(private readonly scene: Scene) {
-		const loader = new TextureLoader();
+		const loader = new TextureLoader().setPath('images/textures/');
 		FAMILY_16h5.loadTextures();
-		this.robotTexture = loader.load("images/textures/crate.gif");
-		this.cameraTexture = loader.load("images/textures/oakd-s2.png");
-		this.fieldTexture = loader.load("images/textures/2023-field.png");
+		this.robotTexture = loader.load("crate.gif");
+		this.cameraTexture = loader.load("oakd-s2.png");
+		this.fieldTexture = loader.load("2023-field.png");
 	}
 
 	private validItems(data: DataSource): Array<ItemId & Pose3D> {
