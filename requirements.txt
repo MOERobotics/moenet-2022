@@ -1,7 +1,9 @@
-networktables
+pynetworktables
 logging
 opencv-python=4.6.0.66
 depthai
 numpy
 matplotlib
 scipy
+fastapi
+sse_starlette
