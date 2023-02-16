@@ -104,13 +104,15 @@ export class RFView {
 			}
 			case 'tag': {
 				const texture = new AprilTag(FAMILY_16h5, item.id).texture;
+				const matFront = new MeshBasicMaterial({map: texture });
+				const matBack = new MeshBasicMaterial({map: this.robotTexture });
 				const cubeMaterials = [
-					new MeshBasicMaterial({map: texture }),
-					new MeshBasicMaterial({map: this.robotTexture }),
-					new MeshBasicMaterial({map: this.robotTexture }),
-					new MeshBasicMaterial({map: this.robotTexture }),
-					new MeshBasicMaterial({map: this.robotTexture }),
-					new MeshBasicMaterial({map: this.robotTexture }),
+					matFront,
+					matBack,
+					matBack,
+					matBack,
+					matBack,
+					matBack,
 				];
 				return new Mesh(tagGeometry, cubeMaterials);
 			}
