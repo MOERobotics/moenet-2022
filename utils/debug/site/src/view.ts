@@ -30,9 +30,12 @@ function hashId(item: ItemId): string {
 	}
 }
 
+function getMaterials(mesh: Mesh): Material[] {
+	return Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+}
+
 function setOpacity(mesh: Mesh, opacity: number) {
-	const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-	for (const material of materials) {
+	for (const material of getMaterials(mesh)) {
 		material.transparent = opacity !== 1;
 		material.opacity = opacity;
 	}
