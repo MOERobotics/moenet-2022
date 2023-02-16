@@ -82,7 +82,7 @@ class Rotation3D(Interpolable['Rotation3D']):
         return Rotation3D(Quaternion(np.cos(angle/2), v))
     
     @staticmethod
-    def from_rotation_matrix(R: 'np.ndarray') -> 'Rotation3D':
+    def from_rotation_matrix(R: 'np.ndarray[float, tuple[Literal[3], Literal[3]]]') -> 'Rotation3D':
         "Constructs a `Rotation3D` from a rotation matrix."
         R = assert_npshape(R, (3,3), 'rotation matrix', dtype=float)
 
