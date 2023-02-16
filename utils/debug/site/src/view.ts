@@ -72,12 +72,12 @@ export class RFView {
 		this.fieldTexture = loader.load("2023-field.png");
 
 		const modelLoader = new GLTFLoader().setPath('models/');
-		modelLoader.load('field-2023.glb', gltf => {
-			console.log(gltf.scene);
-			this.scene.add(gltf.scene);
-		}, e => {
-			console.log(e.loaded / e.total);
-		});
+		// modelLoader.load('field-2023.glb', gltf => {
+		// 	console.log(gltf.scene);
+		// 	this.scene.add(gltf.scene);
+		// }, e => {
+		// 	console.log(e.loaded / e.total);
+		// });
 	}
 
 	private validItems(data: DataSource): Array<ItemId & Pose3D> {
