@@ -2,14 +2,18 @@ import { BoxGeometry, Euler, Material, Mesh, MeshBasicMaterial, Quaternion, Scen
 import { AprilTag, FAMILY_16h5 } from "./apriltag";
 import DataSource, { CameraId, ItemId, Pose3D, ReferenceFrame, TagId } from "./data";
 const ROBOT_HEIGHT = 1.0;
+/** Width of field (m) */
 const FIELD_WIDTH = 15.98;
+/** Height of field (m) */
 const FIELD_HEIGHT = 8.21;
+/** Length of a side of an AprilTag (mm) */
 const TAG_SIZE = .152;
 const robotGeometry = new BoxGeometry(ROBOT_HEIGHT, 1.0, 1.0);
 const cameraGeometry = new BoxGeometry(.110, .024, .033);
 const tagGeometry = new BoxGeometry(TAG_SIZE, TAG_SIZE, .001);
 const fieldGeometry = new BoxGeometry(FIELD_WIDTH, FIELD_HEIGHT, .01);
 
+/** Equality check for reference frames */
 function matchFrame(u: ReferenceFrame, v: ReferenceFrame) {
 	if (u.type !== v.type)
 		return false;
