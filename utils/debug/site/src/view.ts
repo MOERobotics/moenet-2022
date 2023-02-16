@@ -1,4 +1,4 @@
-import { BoxGeometry, Euler, Material, Mesh, MeshBasicMaterial, Quaternion, Scene, Sprite, SpriteMaterial, Texture, TextureLoader, Vector3 } from "three";
+import { AxesHelper, BoxGeometry, Material, Mesh, MeshBasicMaterial, Quaternion, Scene, Texture, TextureLoader, Vector3 } from "three";
 import { AprilTag, FAMILY_16h5 } from "./apriltag";
 import DataSource, { CameraId, ItemId, Pose3D, ReferenceFrame, TagId } from "./data";
 const ROBOT_HEIGHT = 1.0;
@@ -40,10 +40,16 @@ function setOpacity(mesh: Mesh, opacity: number) {
 
 const RETAIN_FRAMES = 100;
 
+interface ItemMeshes {
+	main: Mesh;
+	axes?: AxesHelper;
+	lastSeen: number;
+}
+
 export class RFView {
-	private _frame: ReferenceFrame = { type: 'camera', id: 0 }
+	private _frame: ReferenceFrame = { type: 'camera', id: 0 };
 	private frameId = 0;
-	private items = new Map<string, [mesh: Mesh, lastSeen: number]>();
+	private items = new Map<string, ItemMeshes>();
 	private readonly robotTexture: Texture;
 	private readonly cameraTexture: Texture;
 	private readonly fieldTexture: Texture;
@@ -126,8 +132,10 @@ export class RFView {
 		console.log(`Setting reference frame to:`, frame);
 		this._frame = frame;
 
-		for (const [item, _] of this.items.values()) {
-			this.scene.remove(item);
+		for (const { main, axes } of this.items.values()) {
+			this.scene.remove(main);
+			if (axes)
+				this.scene.remove(axes);
 		}
 		this.items.clear();
 		if (this.rfMesh !== undefined) {
@@ -166,9 +174,7 @@ export class RFView {
 		for (const item of validItems) {
 			const hash = hashId(item);
 			missedItems.delete(hash);
-			const extant = this.items.get(hash);
-			let translation = item.translation;
-			let rotation = item.rotation;
+
 			// We need to modify some types of objects
 			switch (item.type) {
 				case 'robot':
@@ -190,21 +196,37 @@ export class RFView {
 					console.log('cam tl', translation);
 			}
 
+			const extant = this.items.get(hash);
 			if (extant !== undefined) {
-				const mesh = extant[0];
-				const material = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material);
-				material.transparent = false;
-				material.opacity = 1;
-				mesh.position.copy(translation);
-				mesh.quaternion.copy(rotation);
+				const { main, axes } = extant;
+				main.position.copy(translation);
+				main.quaternion.copy(rotation);
+
+				if (axes) {
+					axes.position.copy(translation);
+					axes.quaternion.copy(rotation);
+				}
 				
-				extant[1] = this.frameId;
+				
+				// Set as last seen
+				extant.lastSeen = this.frameId;
 			} else {
-				const mesh = this.makeItem(item)!;
-				this.items.set(hash, [mesh, this.frameId]);
-				mesh.position.copy(translation);
-				mesh.quaternion.copy(rotation);
-				this.scene.add(mesh);
+				// Create new field object
+				const main = this.makeItem(item)!;
+				const axes = SHOW_AXES ? new AxesHelper() : undefined;
+				this.items.set(hash, { main, axes, lastSeen: this.frameId });
+
+				// Set its position
+				main.position.copy(translation);
+				main.quaternion.copy(rotation);
+
+				this.scene.add(main);
+
+				if (axes) {
+					axes.position.copy(translation);
+					axes.quaternion.copy(rotation)
+					this.scene.add(axes);
+				}
 			}
 		}
 
@@ -216,13 +238,16 @@ export class RFView {
 			const [mesh, lastSeen] = item;
 			const framesSinceSeen = this.frameId - lastSeen;
 			if (framesSinceSeen > RETAIN_FRAMES) {
-				this.scene.remove(mesh);
+				this.scene.remove(main);
+				if (axes)
+					this.scene.remove(axes);
 				this.items.delete(itemName);
 				continue;
 			}
-			let material = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material);
-			material.transparent = true;
-			material.opacity = 1 - (framesSinceSeen / RETAIN_FRAMES);
+			for (const material of getMaterials(main)) {
+				material.transparent = true;
+				material.opacity = 1 - (framesSinceSeen / RETAIN_FRAMES);
+			}
 		}
 	}
 }
