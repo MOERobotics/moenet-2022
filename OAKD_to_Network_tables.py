@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, NamedTuple
 import tag
 
 if TYPE_CHECKING:
@@ -30,10 +30,17 @@ camera0_rs = Transform3D(
     # + Rotation3D.from_axis_angle([1,0,0], 90, degrees=True)
 )
 
+class ItemDetection(NamedTuple):
+    camera_id: int
+    item_id: 'ObjectId'
+    "What item was detected"
+    pose_cs: Pose3D
+    "Item pose (in camera-space)"
+
 class TagDetector:
     camera_id: int
     camera_rs: Transform3D
-    def detect(self) -> list[tuple[int, Transform3D]]:
+    def detect(self) -> list[ItemDetection]:
         return []
     
     def __enter__(self):
