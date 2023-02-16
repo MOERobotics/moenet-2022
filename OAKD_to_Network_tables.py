@@ -62,6 +62,10 @@ class OakTagDetector(TagDetector):
     def __init__(self) -> None:
         self.camera_id = 0
         self.camera_rs = camera0_rs
+        try:
+            import pupil_apriltags
+        except ImportError:
+            pass
 
         self.detector = apriltag.Detector(families="tag16h5", nthreads=2)
     
