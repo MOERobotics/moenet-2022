@@ -206,7 +206,7 @@ export class RFView {
 			switch (item.type) {
 				case 'robot':
 					// Offset robot so that the bottom is at the floor
-					translation = new Vector3(0, 0, ROBOT_HEIGHT / 2).add(translation);
+					// translation = new Vector3(0, 0, ROBOT_HEIGHT / 2).add(translation);
 					break;
 			}
 
