@@ -184,19 +184,6 @@ export class RFView {
 					// Offset robot so that the bottom is at the floor
 					translation = new Vector3(0, 0, ROBOT_HEIGHT / 2).add(translation);
 					break;
-				case 'tag': {
-					const initial = new Quaternion().copy(rotation);
-					const q1 = new Quaternion();
-					q1.setFromAxisAngle(new Vector3(0,1,0), Math.PI/2);
-					const q2 = new Quaternion();
-					q2.setFromAxisAngle(new Vector3(0,0,1), Math.PI/2);
-					q1.multiply(q2);
-					// rotation = new Quaternion().multiplyQuaternions(q1, rotation);
-					console.log(item.id, initial, rotation);
-					break;
-				}
-				case 'camera':
-					console.log('cam tl', translation);
 			}
 
 			const extant = this.items.get(hash);
