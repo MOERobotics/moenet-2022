@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 import numpy as np
 
 from utils.geom.geom3 import Rotation3D, Transform3D, Pose3D, Translation3D
-from utils.debug import Debugger, DebugFrame, FieldId, RobotId, CameraId, TagId, WebDebug
+from utils.debug import Debugger, DebugFrame, FieldId, RobotId, CameraId, TagId, ObjectId, WebDebug
 
 debugger_type = 'web'
 """
