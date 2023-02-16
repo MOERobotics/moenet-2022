@@ -1,8 +1,11 @@
-from typing import Optional, overload, Union, NamedTuple, Literal
+from typing import Optional, overload, Union, NamedTuple, Literal, TYPE_CHECKING
 import numpy as np
-from .geom2 import Rotation2D, Translation2D, Transform2D, Pose2D
+from .geom2 import Rotation2D, Translation2D, Pose2D
 from .util import Interpolable, EPS, assert_npshape
 from .quaternion import Quaternion
+
+if TYPE_CHECKING:
+    from scipy.spatial.transform import Rotation as ScipyRotation3D
 
 
 class AxisAngle(NamedTuple):
@@ -80,6 +83,10 @@ class Rotation3D(Interpolable['Rotation3D']):
         # https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Definition
         v = (axis / norm) * np.sin(angle/2)
         return Rotation3D(Quaternion(np.cos(angle/2), v))
+
+    @staticmethod
+    def from_scipy(rotation: 'ScipyRotation3D') -> 'Rotation3D':
+        pass
     
     @staticmethod
     def from_rotation_matrix(R: 'np.ndarray[float, tuple[Literal[3], Literal[3]]]') -> 'Rotation3D':
