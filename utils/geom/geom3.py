@@ -787,7 +787,7 @@ class Pose3D(Interpolable['Pose3D']):
     def transform_by(self, other: Transform3D) -> 'Pose3D':
         return Pose3D(
             self.translation + (other.translation.rotate_by(self.rotation)),
-            other.rotation + self.rotation
+            self.rotation + other.rotation
         )
     
     def to_2d(self) -> Pose2D:
