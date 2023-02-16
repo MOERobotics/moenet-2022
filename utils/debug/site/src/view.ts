@@ -148,6 +148,7 @@ export class RFView {
 		this.frameId++;
 
 		if (this._frame.type === 'camera' && this._frame.id !== 0) {
+			// Wrap around for camera reference frame
 			const maxCameraId = validItems
 				.filter((it): it is CameraId & Pose3D => it.type === 'camera')
 				.map(cam => cam.id)
@@ -157,6 +158,7 @@ export class RFView {
 				this.setFrame({type: this._frame.type, id: this._frame.id % maxCameraId });
 			}
 		} else if (this._frame.type === 'tag' && this._frame.id > FAMILY_16h5.size) {
+			// Wrap around for tag reference frame
 			this.setFrame({type: this._frame.type, id: (this._frame.id % FAMILY_16h5.size) });
 		}
 
@@ -167,6 +169,7 @@ export class RFView {
 			const extant = this.items.get(hash);
 			let translation = item.translation;
 			let rotation = item.rotation;
+			// We need to modify some types of objects
 			switch (item.type) {
 				case 'robot':
 					// Offset robot so that the bottom is at the floor
@@ -205,6 +208,7 @@ export class RFView {
 			}
 		}
 
+		// Fade items that we didn't see this time
 		for (const itemName of missedItems.values()) {
 			const item = this.items.get(itemName);
 			if (item === undefined)
