@@ -1,4 +1,5 @@
 import { AxesHelper, BoxGeometry, Material, Mesh, MeshBasicMaterial, Quaternion, Scene, Texture, TextureLoader, Vector3 } from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import { AprilTag, FAMILY_16h5 } from "./apriltag";
 import DataSource, { CameraId, ItemId, Pose3D, ReferenceFrame, TagId } from "./data";
 const ROBOT_HEIGHT = 1.0;
@@ -65,6 +66,14 @@ export class RFView {
 		this.robotTexture = loader.load("crate.gif");
 		this.cameraTexture = loader.load("oakd-s2.png");
 		this.fieldTexture = loader.load("2023-field.png");
+
+		const modelLoader = new GLTFLoader().setPath('models/');
+		modelLoader.load('field-2023.glb', gltf => {
+			console.log(gltf.scene);
+			this.scene.add(gltf.scene);
+		}, e => {
+			console.log(e.loaded / e.total);
+		});
 	}
 
 	private validItems(data: DataSource): Array<ItemId & Pose3D> {
