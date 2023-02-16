@@ -1,22 +1,54 @@
+from typing import TypedDict
 import json
 from utils.geom.geom3 import Pose3D, Translation3D, Rotation3D
 from utils.geom.quaternion import Quaternion
 
-tagf = open('tags.json')
+# Type definitions
+class JSONFieldDimensions(TypedDict):
+    length: float
+    width: float
 
-data = json.load(tagf)
+class JSONTranslation3D(TypedDict):
+    x: float
+    y: float
+    z: float
 
-def parse_tag(tag):
-    pose = tag['pose']
-    posvec = [float(pos) for pos in pose['translation'].values()]
+class JSONQuaternion(TypedDict):
+    W: float
+    X: float
+    Y: float
+    Z: float
+
+class JSONRotation3D(TypedDict):
+    quaternion: JSONQuaternion
+
+class JSONPose3D(TypedDict):
+    translation: JSONTranslation3D
+    rotation: JSONRotation3D
+
+class JSONPose3D(TypedDict):
+    translation: JSONTranslation3D
+    rotation: JSONRotation3D
+
+class JSONTagInfo(TypedDict):
+    ID: int
+    pose: JSONPose3D
+
+class JSONAprilTagField(TypedDict):
+    tags: list[JSONTagInfo]
+    field: JSONFieldDimensions
+
+def parse_tag(tag: JSONTagInfo):
+    pose_raw = tag['pose']
+    translation_raw = pose_raw['translation']
 
     translation = Translation3D(
-        pose['translation']['x'],
-        pose['translation']['y'],
-        pose['translation']['z'],
+        translation_raw['x'],
+        translation_raw['y'],
+        translation_raw['z'],
     )
 
-    quat = pose['rotation']['quaternion']
+    quat = pose_raw['rotation']['quaternion']
     rotation = Rotation3D(
         Quaternion(
             quat['W'],
@@ -30,7 +62,15 @@ def parse_tag(tag):
         rotation,
     )
 
-tags = {
-    tag['ID']: parse_tag(tag)
-    for tag in data['tags']
-}
+
+def load_field(field_path: str):
+    with open(field_path, 'r') as f:
+        tag_data: JSONAprilTagField = json.load(f)
+    
+    tags = {
+        tag['ID']: parse_tag(tag)
+        for tag in tag_data['tags']
+    }
+
+
+tags = load_field('./data/field-2023-chargedup.json')
