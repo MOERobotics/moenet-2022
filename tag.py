@@ -67,7 +67,7 @@ def load_field(field_path: str):
     with open(field_path, 'r') as f:
         tag_data: JSONAprilTagField = json.load(f)
     
-    tags = {
+    return {
         tag['ID']: parse_tag(tag)
         for tag in tag_data['tags']
     }
