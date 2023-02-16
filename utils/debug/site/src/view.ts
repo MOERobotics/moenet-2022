@@ -9,10 +9,12 @@ const FIELD_WIDTH = 15.98;
 const FIELD_HEIGHT = 8.21;
 /** Length of a side of an AprilTag (mm) */
 const TAG_SIZE = .152;
+/** Show an AxesHelper with each item */
+const SHOW_AXES = true;
 const robotGeometry = new BoxGeometry(ROBOT_HEIGHT, 1.0, 1.0);
 const cameraGeometry = new BoxGeometry(.110, .024, .033);
-const tagGeometry = new BoxGeometry(TAG_SIZE, TAG_SIZE, .001);
-const fieldGeometry = new BoxGeometry(FIELD_WIDTH, FIELD_HEIGHT, .01);
+const tagGeometry = new BoxGeometry(.001, TAG_SIZE, TAG_SIZE);
+const fieldGeometry = new BoxGeometry(FIELD_WIDTH, FIELD_HEIGHT, .001);
 
 /** Equality check for reference frames */
 function matchFrame(u: ReferenceFrame, v: ReferenceFrame) {
