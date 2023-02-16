@@ -167,8 +167,6 @@ def robot_from_tag(tag_cs: Transform3D, tag_id: int, camera_rs: Transform3D, cam
     #camera in tag space but using camera like axes, z axis is normal to tag
     camera_tcs = -tag_cs
 
-    #----Works Up Till Here ------
-
     #tag in field space, this assumes x axis is normal to tag
     tag_fs = tag.tags[tag_id]
 
