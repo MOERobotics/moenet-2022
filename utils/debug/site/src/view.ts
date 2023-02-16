@@ -96,6 +96,8 @@ export class RFView {
 		switch (item.type) {
 			case 'robot': {
 				const material = new MeshBasicMaterial({ map: this.robotTexture });
+				material.transparent = true;
+				material.opacity = .5;
 				return new Mesh(robotGeometry, material);
 			}
 			case 'tag': {
@@ -190,6 +192,7 @@ export class RFView {
 			missedItems.delete(hash);
 
 			// We need to modify some types of objects
+			let { translation, rotation } = item;
 			switch (item.type) {
 				case 'robot':
 					// Offset robot so that the bottom is at the floor
@@ -200,6 +203,12 @@ export class RFView {
 			const extant = this.items.get(hash);
 			if (extant !== undefined) {
 				const { main, axes } = extant;
+				if (item.type !== 'robot') {
+					for (const material of getMaterials(main)) {
+						material.transparent = false;
+						material.opacity = 1;
+					}
+				}
 				main.position.copy(translation);
 				main.quaternion.copy(rotation);
 
