@@ -1,7 +1,6 @@
 from __future__ import annotations
 from typing import Optional, TYPE_CHECKING
 import tag
-import numpy as np
 
 if TYPE_CHECKING:
     # Only load these modules if we need them
@@ -191,8 +190,6 @@ def robot_from_tag(tag_cs: Transform3D, tag_id: int, camera_rs: Transform3D, cam
     # Translation works, but camera_rs having rotation is broken
     robot_fs = camera_fs.transform_by(robot_cs)
 
-    robot_fs = camera_ts
-
     if dbf is not None:
         fs = FieldId()
         rs = RobotId()
@@ -244,7 +241,6 @@ if __name__ == '__main__':
             tl = robot_fs.translation
             q = robot_fs.rotation.to_quaternion()
 
-            print(tl.x, tl.y, tl.z)
 
             pose = [tl.x, tl.y, tl.z, q.w, q.x, q.y, q.z]
             nts.send_pose(pose) #Returns robot in field space.
