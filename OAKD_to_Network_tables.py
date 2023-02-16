@@ -164,12 +164,10 @@ def robot_from_tag(tag_cs: Transform3D, tag_id: int, camera_rs: Transform3D, cam
     - `dbf` Debugging frame (optional)
     """
 
-    #camera in tag space but using camera like axes, z axis is normal to tag
-    camera_tcs = -tag_cs
-
     #tag in field space, this assumes x axis is normal to tag
     tag_fs = tag.tags[tag_id]
 
+    #Convert from tag space to tag in camera space, this assumes z axis is normal to tag
     #What tag camera space looks like in tag space
     tcs_ts : Pose3D = Pose3D(Translation3D(0,0,0),
                         Rotation3D.from_rotation_matrix(np.array(
@@ -178,15 +176,19 @@ def robot_from_tag(tag_cs: Transform3D, tag_id: int, camera_rs: Transform3D, cam
                              [0,-1, 0]]
                         )))
 
-    #go from tag camera space to tag space
-    camera_ts = tcs_ts.transform_by(camera_tcs)
+    tcs_fs = tag_fs.transform_by(tcs_ts)
 
-    camera_fs = tag_fs.transform_by(camera_ts)
+    #camera in tag space but using camera like axes, z axis is normal to tag
+    camera_tcs = -tag_cs
+
+    camera_fs = tcs_fs.transform_by(camera_tcs)
 
     robot_cs = -camera_rs
     
     # Translation works, but camera_rs having rotation is broken
     robot_fs = camera_fs.transform_by(robot_cs)
+
+    robot_fs = camera_fs
 
     if dbf is not None:
         fs = FieldId()
@@ -197,13 +199,18 @@ def robot_from_tag(tag_cs: Transform3D, tag_id: int, camera_rs: Transform3D, cam
         dbf.record(ts, cs, tag_cs)
         # dbf.record(rs, cs, robot_cs)
 
-        dbf.record(cs, ts, camera_ts)
+        ####################################################################
+        # Made change here to avoid conflicts camera_ts -> camera_tcs
+        dbf.record(cs, ts, camera_tcs)
         # robot_ts = Pose3D.from_transform(robot_cs).transform_by(-camera_ts) # Good
         robot_ts = Pose3D.from_transform(camera_rs).relative_to(Pose3D.from_transform(tag_cs)) # Good
         dbf.record(rs, ts, robot_ts)
 
         dbf.record(cs, rs, camera_rs)
-        tag_rs = Pose3D.from_transform(camera_ts).relative_to(Pose3D.from_transform(robot_cs))
+
+        ####################################################################
+        # Made change here to avoid conflicts camera_ts -> camera_tcs
+        tag_rs = Pose3D.from_transform(camera_tcs).relative_to(Pose3D.from_transform(robot_cs))
         # tag_rs = -Transform3D(robot_ts.translation, robot_ts.rotation)
         dbf.record(ts, rs, tag_rs)
         
