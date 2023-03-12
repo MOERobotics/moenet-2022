@@ -1,251 +1,493 @@
-from __future__ import annotations
-from typing import Optional, TYPE_CHECKING
+from pathlib import Path
+import Network_Tables_Sender as nts
 import tag
-
-if TYPE_CHECKING:
-    # Only load these modules if we need them
-    import moe_apriltags as apriltag #Special MOE one
-    import depthai as dai
+import fnmatch
+import os
+from random import randint
+import time
+import cv2
+import depthai as dai
+from multiprocessing import Process, Queue
+#Special MOE one
+import pupil_apriltags
+import moe_apriltags as apriltag
 import numpy as np
+import sys
 
 from utils.geom.geom3 import Rotation3D, Transform3D, Pose3D, Translation3D
-from utils.debug import Debugger, DebugFrame, FieldId, RobotId, CameraId, TagId, WebDebug
 
-debugger_type = 'web'
-"""
-You can set this variable to:
- - `None` -> no debugging
- - `"web"` -> runs web server
-"""
-simulate = False
-"""
-Set this to `True` if you want to simulate an apriltag rotating around, instead of using a camera
-"""
+flip = 0
 
-camera0_rs = Transform3D(
-    Translation3D(0,0,0),
-    Rotation3D.from_rotation_matrix(np.array(
-                                    [[ 0, 0, 1],
-                                     [-1, 0, 0],
-                                     [ 0,-1, 0]]
-                                   ))
-    # Rotation3D.identity()
-    # + Rotation3D.from_axis_angle([1,0,0], 90, degrees=True)
-    # + Rotation3D.from_axis_angle([0,1,0], 180, degrees=True)
-    # + Rotation3D.from_axis_angle([1,0,0], 90, degrees=True)
-)
+debug = False
 
-class TagDetector:
-    camera_id: int
-    camera_rs: Transform3D
-    def detect(self) -> list[tuple[int, Transform3D]]:
-        return []
-    
-    def __enter__(self):
-        return self
+small_debug = True
 
-    def __exit__(self, *args):
-        pass
+if debug:
+    import matplotlib.pyplot as plt
+    from scipy.spatial.transform import Rotation as R
+    plt.ion()
+    fig = plt.figure()
+    ax1 = fig.add_subplot(1,1,1)
 
-class OakTagDetector(TagDetector):
-    @staticmethod
-    def create_pipeline():
-        import depthai as dai
-        pipeline = dai.Pipeline()
 
-        monoout = pipeline.createXLinkOut()
-        monoout.setStreamName("mono")
+buffer = []
 
-        monocam = pipeline.createMonoCamera()
-        monocam.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
-        monocam.setFps(30)
-        monocam.setBoardSocket(dai.CameraBoardSocket.LEFT)
 
-        monocam.out.link(monoout.input)
-        return pipeline
-    
-    def __init__(self) -> None:
-        self.camera_id = 0
-        self.camera_rs = camera0_rs
+#Creating pipeline
+def create_pipeline():
+    # Create pipeline
+    pipeline = dai.Pipeline()
 
-        self.detector = apriltag.Detector(families="tag16h5", nthreads=2)
-    
-    def __enter__(self):
-        import depthai as dai
-        self._device = dai.Device(self.create_pipeline())
-        device: dai.Device = self._device.__enter__()
-        self.monoq = device.getOutputQueue(name="mono", maxSize=1, blocking=False)
-        calibdata = device.readCalibration()
-        intrinsics = calibdata.getCameraIntrinsics(dai.CameraBoardSocket.LEFT, destShape=(600,400))
-        self._camera_params = (
-            intrinsics[0][0],
-            intrinsics[1][1],
-            intrinsics[0][2],
-            intrinsics[1][2],
-        )
-        return self
-    
-    def __exit__(self, *args):
-        res = self._device.__exit__(*args)
-        del self._device
-        return res
-    
-    def detect(self) -> list[tuple[int, Transform3D]]:
-        frame: 'dai.ImgFrame' = self.monoq.get()
-        img: np.ndarray = frame.getCvFrame()
+    # Define sources and outputs
+    camRgb = pipeline.create(dai.node.ColorCamera)
+    spatialDetectionNetwork = pipeline.createYoloSpatialDetectionNetwork()
+    monoLeft = pipeline.create(dai.node.MonoCamera)
+    monoRight = pipeline.create(dai.node.MonoCamera)
+    stereo = pipeline.create(dai.node.StereoDepth)
+    xoutNN = pipeline.create(dai.node.XLinkOut)
+    xOutMono = pipeline.create(dai.node.XLinkOut)
 
-        if True:
-            import cv2
-            cv2.imshow('foo', img)
-            if cv2.waitKey(1) == ord('q'):
-                raise StopIteration
-        
-        detections: list[apriltag.Detection] = self.detector.detect(
-            img,
-            l=1,
-            r=8,
-            maxhamming=0,
-            estimate_tag_pose=True,
-            tag_size=.1524,
-            camera_params=self._camera_params,
-        )
-        if len(detections) == 0:
-            return []
+    xOutMono.setStreamName("mono")
 
-        detections.sort(reverse=True, key = lambda x: x.pose_err)
-        detection = detections[0]
-        
-        #rotation object is for the back of the apriltag
-        tag_cs = Transform3D(
-            Translation3D(detection.pose_t[:,0]),
-            rotation=Rotation3D.from_rotation_matrix(detection.pose_R)
-        )
-        
-        return [
-            (detection.tag_id, tag_cs)
+    xoutNN.setStreamName("detections")
+
+    # Properties
+    camRgb.setPreviewSize(416, 416)
+    camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
+    camRgb.setInterleaved(False)
+    camRgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
+
+    monoLeft.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
+    monoLeft.setBoardSocket(dai.CameraBoardSocket.LEFT)
+    monoRight.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
+    monoRight.setBoardSocket(dai.CameraBoardSocket.RIGHT)
+
+    # setting node configs
+    stereo.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.HIGH_DENSITY)
+    # Align depth map to the perspective of RGB camera, on which inference is done
+    stereo.setDepthAlign(dai.CameraBoardSocket.RGB)
+    stereo.setOutputSize(monoLeft.getResolutionWidth(), monoLeft.getResolutionHeight())
+
+    nnBlobPath = str((Path(__file__).parent / Path('./data/moeNetV1.blob')).resolve().absolute())
+    spatialDetectionNetwork.setBlobPath(nnBlobPath)
+    spatialDetectionNetwork.setConfidenceThreshold(0.75)
+    spatialDetectionNetwork.input.setBlocking(False)
+    spatialDetectionNetwork.setBoundingBoxScaleFactor(0.5)
+    spatialDetectionNetwork.setDepthLowerThreshold(100)
+    spatialDetectionNetwork.setDepthUpperThreshold(5000)
+
+    # Yolo specific parameters
+    spatialDetectionNetwork.setNumClasses(3)
+    spatialDetectionNetwork.setCoordinateSize(4)
+    spatialDetectionNetwork.setAnchors([
+        10.0,
+        13.0,
+        16.0,
+        30.0,
+        33.0,
+        23.0,
+        30.0,
+        61.0,
+        62.0,
+        45.0,
+        59.0,
+        119.0,
+        116.0,
+        90.0,
+        156.0,
+        198.0,
+        373.0,
+        326.0])
+    spatialDetectionNetwork.setAnchorMasks({
+                    "side52": [
+                        0,
+                        1,
+                        2
+                    ],
+                    "side26": [
+                        3,
+                        4,
+                        5
+                    ],
+                    "side13": [
+                        6,
+                        7,
+                        8
+                    ]
+                })
+    spatialDetectionNetwork.setIouThreshold(0.5)
+
+    # Linking
+    monoLeft.out.link(stereo.left)
+    monoRight.out.link(stereo.right)
+
+    monoLeft.out.link(xOutMono.input)
+
+    camRgb.preview.link(spatialDetectionNetwork.input)
+
+    spatialDetectionNetwork.out.link(xoutNN.input)
+
+    stereo.depth.link(spatialDetectionNetwork.inputDepth)
+
+    return pipeline
+
+#Creating tag pipeline
+def tag_create_pipeline():
+    # Create pipeline
+    pipeline = dai.Pipeline()
+
+    # Define sources and outputs
+    monoLeft = pipeline.create(dai.node.MonoCamera)
+    xOutMono = pipeline.create(dai.node.XLinkOut)
+
+    xOutMono.setStreamName("mono")
+
+
+    monoLeft.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
+    monoLeft.setBoardSocket(dai.CameraBoardSocket.LEFT)
+
+    # Linking
+
+    monoLeft.out.link(xOutMono.input)
+
+    return pipeline
+
+#Creating object pipeline
+def obj_create_pipeline():
+    # Create pipeline
+    pipeline = dai.Pipeline()
+
+    # Define sources and outputs
+    camRgb = pipeline.create(dai.node.ColorCamera)
+    spatialDetectionNetwork = pipeline.createYoloSpatialDetectionNetwork()
+    monoLeft = pipeline.create(dai.node.MonoCamera)
+    monoRight = pipeline.create(dai.node.MonoCamera)
+    stereo = pipeline.create(dai.node.StereoDepth)
+    xoutNN = pipeline.create(dai.node.XLinkOut)
+    ctrl_in = pipeline.create(dai.node.XLinkIn)
+    ctrl_out = pipeline.create(dai.node.XLinkOut)
+
+    xoutNN.setStreamName("detections")
+    ctrl_in.setStreamName("still_in")
+    ctrl_out.setStreamName("still_out")
+
+
+    # Properties
+    camRgb.setPreviewSize(416, 416)
+    camRgb.setStillSize(640, 640)
+    camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
+    camRgb.setInterleaved(False)
+    camRgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
+
+    monoLeft.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
+    monoLeft.setBoardSocket(dai.CameraBoardSocket.LEFT)
+    monoRight.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
+    monoRight.setBoardSocket(dai.CameraBoardSocket.RIGHT)
+
+    # setting node configs
+    stereo.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.HIGH_DENSITY)
+    # Align depth map to the perspective of RGB camera, on which inference is done
+    stereo.setDepthAlign(dai.CameraBoardSocket.RGB)
+    stereo.setOutputSize(monoLeft.getResolutionWidth(), monoLeft.getResolutionHeight())
+
+    nnBlobPath = str((Path(__file__).parent / Path('./data/moeNetV1.blob')).resolve().absolute())
+    spatialDetectionNetwork.setBlobPath(nnBlobPath)
+    spatialDetectionNetwork.setConfidenceThreshold(0.75)
+    spatialDetectionNetwork.input.setBlocking(False)
+    spatialDetectionNetwork.setBoundingBoxScaleFactor(0.5)
+    spatialDetectionNetwork.setDepthLowerThreshold(100)
+    spatialDetectionNetwork.setDepthUpperThreshold(5000)
+
+    # Yolo specific parameters
+    spatialDetectionNetwork.setNumClasses(3)
+    spatialDetectionNetwork.setCoordinateSize(4)
+    spatialDetectionNetwork.setAnchors([
+        10.0,
+        13.0,
+        16.0,
+        30.0,
+        33.0,
+        23.0,
+        30.0,
+        61.0,
+        62.0,
+        45.0,
+        59.0,
+        119.0,
+        116.0,
+        90.0,
+        156.0,
+        198.0,
+        373.0,
+        326.0])
+    spatialDetectionNetwork.setAnchorMasks({
+        "side52": [
+            0,
+            1,
+            2
+        ],
+        "side26": [
+            3,
+            4,
+            5
+        ],
+        "side13": [
+            6,
+            7,
+            8
         ]
+    })
+    spatialDetectionNetwork.setIouThreshold(0.5)
 
+    # Linking
+    monoLeft.out.link(stereo.left)
+    monoRight.out.link(stereo.right)
 
-class FakeTagDetector(TagDetector):
-    def __init__(self):
-        self.camera_id = 0
-        self.camera_rs = camera0_rs
-        self.i = 0
+    camRgb.preview.link(spatialDetectionNetwork.input)
+    camRgb.still.link(ctrl_out.input)
+    ctrl_in.out.link(camRgb.inputControl)
+
+    spatialDetectionNetwork.out.link(xoutNN.input)
+
+    stereo.depth.link(spatialDetectionNetwork.inputDepth)
     
-    def detect(self) -> list[tuple[int, Transform3D]]:
-        import time
-        time.sleep(.01)
-        if self.i < 60:
-            ax = [1,0,0]
-        elif self.i < 120:
-            ax = [0,1,0]
+
+    return pipeline
+
+detector = apriltag.Detector(families="tag16h5", nthreads=2)
+
+def calculate_pose(det: apriltag.Detection):
+    translation = det.pose_t[:,0]
+
+    rotation = det.pose_R
+
+    rinv = np.linalg.inv(rotation)
+
+    #negate -> translation+robotpos = tag 0,0,0 -> robotpos = -translation
+    tinv = rinv@-translation
+
+    return rinv, tinv, rotation, translation
+
+def file_saver(path, q: Queue):
+    path = Path(path)
+
+    current_count = 0
+    session_name = randint(1,1000000000)
+    while True:
+        img = q.get()
+        if path.exists() and img is not None:
+            try:
+                count = len(fnmatch.filter(os.listdir(path), '*.*'))
+                if count < 6000 and current_count < 1200:
+                    current_count += 1
+                    cv2.imwrite(str(path / f"{session_name}_{current_count}.png"), img)
+                else:
+                    pass
+                    #time.sleep(10)
+            except Exception as e:
+                print(e)
+        time.sleep(0.5)    
+
+
+def main(mode = 'obj', mxid = None):
+    # 0 - Camera on back for april tag detection, 1 - Camera on front for objet detection
+    # io_proc = None
+    try:
+        if mode == 'tag':
+            pipeline = tag_create_pipeline()
         else:
-            ax = [0,0,1]
-        tag_cs = Transform3D(
-            Translation3D(0,0,1),
-            rotation=Rotation3D.from_axis_angle(ax, ((self.i % 60) - 30)*2, degrees=True),
-        )
-        self.i += 1
-        self.i %= 180
-        return [
-            (1, tag_cs)
-        ]
-
-
-def robot_from_tag(tag_cs: Transform3D, tag_id: int, camera_rs: Transform3D, camera_id: int, dbf: Optional[DebugFrame] = None):
-    """
-    Compute the robot pose (`robot_fs`) from a tag detection (`tag_cs`)
-
-    ## Parameters
-    - `tag_cs` Detected tag pose, in camera space
-    - `tag_id` AprilTag ID of detected tag
-    - `camera_rs` Pose of camera that detected the tag, in robot space
-    - `camera_id` ID of camera that detected the tag
-    - `dbf` Debugging frame (optional)
-    """
-
-    #tag in field space, this assumes x axis is normal to tag
-    tag_fs = tag.tags[tag_id]
-
-    #Convert from tag space to tag in camera space, this assumes z axis is normal to tag
-    #What tag camera space looks like in tag space
-    tcs_ts : Pose3D = Pose3D(Translation3D(0,0,0),
-                        Rotation3D.from_rotation_matrix(np.array(
-                            [[0, 0,-1],
-                             [1, 0, 0],
-                             [0,-1, 0]]
-                        )))
-
-    tcs_fs = tag_fs.transform_by(tcs_ts)
-
-    #camera in tag space but using camera like axes, z axis is normal to tag
-    camera_tcs = -tag_cs
-
-    camera_fs = tcs_fs.transform_by(camera_tcs)
-
-    robot_cs = -camera_rs
-    
-    # Translation works, but camera_rs having rotation is broken
-    robot_fs = camera_fs.transform_by(robot_cs)
-
-    robot_fs = camera_fs
-
-    if dbf is not None:
-        fs = FieldId()
-        rs = RobotId()
-        cs = CameraId(camera_id)
-        ts = TagId(tag_id)
-
-        dbf.record(ts, cs, tag_cs)
-        # dbf.record(rs, cs, robot_cs)
-
-        ####################################################################
-        # Made change here to avoid conflicts camera_ts -> camera_tcs
-        dbf.record(cs, ts, camera_tcs)
-        # robot_ts = Pose3D.from_transform(robot_cs).transform_by(-camera_ts) # Good
-        robot_ts = Pose3D.from_transform(camera_rs).relative_to(Pose3D.from_transform(tag_cs)) # Good
-        dbf.record(rs, ts, robot_ts)
-
-        dbf.record(cs, rs, camera_rs)
-
-        ####################################################################
-        # Made change here to avoid conflicts camera_ts -> camera_tcs
-        tag_rs = Pose3D.from_transform(camera_tcs).relative_to(Pose3D.from_transform(robot_cs))
-        # tag_rs = -Transform3D(robot_ts.translation, robot_ts.rotation)
-        dbf.record(ts, rs, tag_rs)
+            pipeline = obj_create_pipeline()
+            # io_q = Queue(1)
+            # io_proc = Process(
+            #     target=file_saver,
+            #     args=('./images', io_q),
+            #     daemon=True
+            # )
+            # io_proc.start()
         
-        dbf.record(ts, fs, tag_fs)
-        dbf.record(cs, fs, camera_fs)
-        dbf.record(rs, fs, robot_fs)
 
-    return robot_fs
+        curr_time = time.monotonic()
+        
+        with dai.Device(pipeline, dai.DeviceInfo(mxid) if mxid is not None else None) as device:
+            device: dai.Device
+            if mode == 'tag':
+                monoq = device.getOutputQueue(name="mono", maxSize=1, blocking=False)
+            else:
+                xoutDetect = device.getOutputQueue(name="detections", maxSize=1, blocking=False)
+                # still_queue = device.getOutputQueue(name="still_out", maxSize=1, blocking=False)
+                # ctrl_queue = device.getInputQueue(name='still_in')
 
+            #April Tag Calibration Data
+            calibdata = device.readCalibration()
+            intrinsics = calibdata.getCameraIntrinsics(dai.CameraBoardSocket.LEFT, destShape=(600,400))
 
-if __name__ == '__main__':
-    import Network_Tables_Sender as nts
-    import moe_apriltags as apriltag
-
-    debugger: Debugger = WebDebug() if debugger_type == 'web' else Debugger()
-    with (FakeTagDetector() if simulate else OakTagDetector()) as detector:
-        print('ready')
-
-        while True:
-            detections = detector.detect()
-
-            if len(detections) == 0:
-                continue
-
-            detection = detections[0]
-
-            with debugger.frame() as dbf:
-                for other_id, other_pose in detections[1:]:
-                    dbf.record(TagId(other_id), CameraId(0), other_pose)
-                
-                robot_fs = robot_from_tag(detection[1], detection[0], detector.camera_rs, detector.camera_id, dbf)
+            oak_d_camera_params = (
+                intrinsics[0][0],
+                intrinsics[1][1],
+                intrinsics[0][2],
+                intrinsics[1][2],
+            )
             
-            tl = robot_fs.translation
-            q = robot_fs.rotation.to_quaternion()
+            while True:
+                if mode == 'tag':
+                    label = 'mono'
+                else:
+                    label = device.getQueueEvent(['detections', 'still_out'])
+                
 
+        #        print(label)
 
-            pose = [tl.x, tl.y, tl.z, q.w, q.x, q.y, q.z]
-            nts.send_pose(pose) #Returns robot in field space.
+                if label == "mono":
+                    img = monoq.get().getCvFrame()
+
+                    results = detector.detect(img,
+                                        l=1,
+                                        r=8,
+                                        maxhamming=0,
+                                        estimate_tag_pose=True,
+                                        tag_size=.1524,
+                                        camera_params=oak_d_camera_params)
+                
+                    if debug:
+                        cv2.imshow('foo', img)
+                        if cv2.waitKey(1) == ord('q'):
+                            break
+                    
+                    if len(results) == 0:
+                        continue
+                    
+                    results.sort(reverse=True, key = lambda x: x.pose_err)
+                    result: apriltag.Detection = results[0]
+
+                    rotation_ts, translation_ts, rotation_cs, translation_cs = calculate_pose(result)
+                    
+
+                    if(debug):
+                        if len(buffer) > 20:
+                            buffer = buffer[-20:]
+                        
+                        buffer.append([*translation_ts, *translation_cs])
+                        b = np.array(buffer)
+                        ax1.cla()
+                        ax1.set(xlim=(-5,5), ylim=(-5,5))
+                        ax1.scatter([0], [0])
+                        ax1.plot(b[:,0], b[:,2])
+                        ax1.plot(b[:,3], b[:,5])
+                        plt.draw()
+                        plt.pause(.001)
+                    
+                    #Original frame of reference: x - side to side, y - up and down, z - towards target
+                    #New frame of reference: x - towards target, y - side to side, z - up and down
+
+                    #based on tags whose z axis is pointing the same way as the field x axis
+                    tag2field = np.array([[0,0,1],[-1,0,0],[0,-1,0]])
+
+                    #facing wrong way, rotate 180 around current y axis
+                    if(tag.rot0[result.tag_id]):
+                        tag2field = tag2field@np.array([[-1,0,0],[0,1,0],[0,0,-1]])
+                    
+                    translation_fs = tag2field@translation_ts
+                    translation_fs += tag.tagpos[result.tag_id]
+
+                    #Rotation details
+                    uvecp = [0,0,1] #plane vector
+                    uvecn = [0,-1,0] #normal vector
+                    
+                    #If camera is flipped, the normal vector has to be rotated 180
+                    if flip:
+                        uvecn = [0,1,0]
+                        rotation_ts = rotation_ts@np.array(
+                            [[1,0,0],
+                             [0,-1,0],
+                             [0,0,1]]
+                        )
+                    
+                    # rotvec = tag2field@(rotation_ts@uvecp)
+                    # rollvec = tag2field@(rotation_ts@uvecn)
+
+                    # #All angles given in deg, +- 180
+
+                    # #yaw - counterclockwise - 0 in line with [1,0,0]
+                    # yaw = np.arctan2(rotvec[1], rotvec[0])
+
+                    # #pitch - counterclockwise - 0 in line with [1,0,0]
+                    # pitch = np.arctan2(rotvec[2], rotvec[0])
+
+                    # #roll - counterclockwise - 0 in line with [0,0,1]
+                    # roll = np.arctan2(rollvec[1], rollvec[2])
+
+                    # #compile angles and turn them into degrees
+                    # angles = [yaw, pitch, roll]
+                    # angles = [np.rad2deg(a) for a in angles]
+
+                    rot_quat = Rotation3D.from_rotation_matrix(tag2field@rotation_ts).to_quaternion()._components
+
+                    nts.send_pose([*translation_fs, *rot_quat])
+
+                    if small_debug:
+                        print("Detected April Tag")
+
+                elif label == "detections":
+                    detections: dai.SpatialImgDetections = xoutDetect.get()
+
+                    ntData = []
+                    for detection in detections.detections:
+                        label = detection.label
+                        x = detection.spatialCoordinates.x/1000
+                        y = detection.spatialCoordinates.y/1000
+                        z = detection.spatialCoordinates.z/1000
+
+                        ntData.extend([x,y,z,label])
+                        print("\t", {'x':x, 'y': y, 'z': z, 'label': label, 'confidnce': detection.confidence})
+                    nts.send_detections(ntData)
+
+                # elif label == "still_out":
+                #     img = still_queue.get().getCvFrame()
+                #     io_q.put_nowait(img)
+                    
+
+                # if time.monotonic() - curr_time >= 1 and mode != 'tag':
+                #     curr_time = time.monotonic()
+                #     ctrl = dai.CameraControl()
+                #     ctrl.setCaptureStill(True)
+                #     ctrl_queue.send(ctrl)
+
+    except KeyboardInterrupt:
+        raise
+    except Exception as e:
+        print(e)
+    # finally:
+    #     if io_proc is not None:
+    #         io_proc.terminate()
+
+# Hybrid mode - tag first, object detection
+if __name__ == '__main__':
+    mode = sys.argv[1] if len(sys.argv) >= 2 else 'obj'
+    mxid = sys.argv[2] if len(sys.argv) >= 3 else None
+    [mxid1, mxid2] = sys.argv[2:4] if len(sys.argv) >= 4 else None
+
+    tag_detection_on = 0
+
+    while True:
+        try:
+            if mode == 'hybrid':
+                if not tag_detection_on:
+                    try:
+                        io_proc = Process(
+                            target=main,
+                            args=('tag', mxid1),
+                            daemon=True
+                        )
+                        io_proc.start()
+                        tag_detection_on = 1
+                    except:
+                        tag_detection_on = 0
+                        pass
+                try:
+                    main('obj', mxid2)
+                except:
+                    pass        
+            else:
+                main(mode, mxid)
+        except Exception as e:
+            print(e)
