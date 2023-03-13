@@ -394,9 +394,9 @@ def main(mode = 'obj', mxid = None):
                     uvecn = [0,-1,0] #normal vector
                     
                     robot2cam = np.array(
-                        [[0,0,-1],
-                         [1,0,0],
-                         [0,-1,0]]
+                        [[0,1,0],
+                         [0,0,-1],
+                         [-1,0,0]]
                     )
 
                     #If camera is flipped, the normal vector has to be rotated 180
@@ -431,7 +431,7 @@ def main(mode = 'obj', mxid = None):
                     nts.send_pose([*translation_fs, *rot_quat])
 
                     if small_debug:
-                        print("Detected April Tag")
+                        print("Detected April Tag", translation_fs, rot_quat)
 
                 elif label == "detections":
                     detections: dai.SpatialImgDetections = xoutDetect.get()
