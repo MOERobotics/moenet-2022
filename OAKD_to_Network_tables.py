@@ -393,6 +393,12 @@ def main(mode = 'obj', mxid = None):
                     uvecp = [0,0,1] #plane vector
                     uvecn = [0,-1,0] #normal vector
                     
+                    robot2cam = np.array(
+                        [[0,0,-1],
+                         [1,0,0],
+                         [0,-1,0]]
+                    )
+
                     #If camera is flipped, the normal vector has to be rotated 180
                     if flip:
                         uvecn = [0,1,0]
@@ -420,7 +426,7 @@ def main(mode = 'obj', mxid = None):
                     # angles = [yaw, pitch, roll]
                     # angles = [np.rad2deg(a) for a in angles]
 
-                    rot_quat = Rotation3D.from_rotation_matrix(tag2field@rotation_ts).to_quaternion()._components
+                    rot_quat = Rotation3D.from_rotation_matrix(tag2field@rotation_ts@robot2cam).to_quaternion()._components
 
                     nts.send_pose([*translation_fs, *rot_quat])
 
