@@ -1,6 +1,6 @@
 import json
 
-def fillout_json(info : dict):
+def fillout_json(info : dict, name : str = 'Info'):
 
     #Check if all values are writeable
     writeable = True
@@ -13,7 +13,7 @@ def fillout_json(info : dict):
         while True:
             info_len = len(info)
             #Print what is being edited
-            print('Editing the follwing values: ', end = '')
+            print('Editing the following values: ', end = '')
             print(*info.keys(), sep = ', ')
             confirm = input(f'Would you like to write all {info_len} values at once?: ')
             confirm = confirm.lower()
@@ -27,7 +27,7 @@ def fillout_json(info : dict):
                 print('Input them as comma separated values:')
 
                 while True:
-                    vals = input()
+                    vals = input(f'{name}: ')
                     vals = [i.strip() for i in vals.strip().split(sep = ',')]
 
                     if len(vals) != info_len:
@@ -53,7 +53,7 @@ def fillout_json(info : dict):
     for key in info.keys():
         if type(info[key]) == dict:
             print(f'Filling out values for {key}:')
-            fillout_json(info[key])
+            fillout_json(info[key], key)
         else:
             while True:
                 val = input(f'{key}: ')
