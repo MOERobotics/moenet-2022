@@ -7,9 +7,9 @@ from random import randint
 import time
 import cv2
 import depthai as dai
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, set_start_method
 #Special MOE one
-import pupil_apriltags
+# import pupil_apriltags
 import moe_apriltags as apriltag
 import numpy as np
 import sys
@@ -468,6 +468,9 @@ def main(mode = 'obj', mxid = None):
 
 # Hybrid mode - tag first, object detection
 if __name__ == '__main__':
+
+    set_start_method('spawn')
+
     mode = sys.argv[1] if len(sys.argv) >= 2 else 'obj'
     mxid = sys.argv[2] if len(sys.argv) >= 3 else None
     [mxid1, mxid2] = sys.argv[2:4] if len(sys.argv) >= 4 else None
