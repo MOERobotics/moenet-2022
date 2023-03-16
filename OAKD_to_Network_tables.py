@@ -292,171 +292,171 @@ def file_saver(path, q: Queue):
 def main(mode = 'obj', mxid = None):
     # 0 - Camera on back for april tag detection, 1 - Camera on front for objet detection
     # io_proc = None
-    # try:
-    if mode == 'tag':
-        pipeline = tag_create_pipeline()
-    else:
-        pipeline = obj_create_pipeline()
-        # io_q = Queue(1)
-        # io_proc = Process(
-        #     target=file_saver,
-        #     args=('./images', io_q),
-        #     daemon=True
-        # )
-        # io_proc.start()
-    
-
-    curr_time = time.monotonic()
-    
-    with dai.Device(pipeline, dai.DeviceInfo(mxid) if mxid is not None else None) as device:
-        device: dai.Device
+    try:
         if mode == 'tag':
-            monoq = device.getOutputQueue(name="mono", maxSize=1, blocking=False)
+            pipeline = tag_create_pipeline()
         else:
-            xoutDetect = device.getOutputQueue(name="detections", maxSize=1, blocking=False)
-            # still_queue = device.getOutputQueue(name="still_out", maxSize=1, blocking=False)
-            # ctrl_queue = device.getInputQueue(name='still_in')
-
-        #April Tag Calibration Data
-        calibdata = device.readCalibration()
-        intrinsics = calibdata.getCameraIntrinsics(dai.CameraBoardSocket.LEFT, destShape=(600,400))
-
-        oak_d_camera_params = (
-            intrinsics[0][0],
-            intrinsics[1][1],
-            intrinsics[0][2],
-            intrinsics[1][2],
-        )
+            pipeline = obj_create_pipeline()
+            # io_q = Queue(1)
+            # io_proc = Process(
+            #     target=file_saver,
+            #     args=('./images', io_q),
+            #     daemon=True
+            # )
+            # io_proc.start()
         
-        while True:
+
+        curr_time = time.monotonic()
+        
+        with dai.Device(pipeline, dai.DeviceInfo(mxid) if mxid is not None else None) as device:
+            device: dai.Device
             if mode == 'tag':
-                label = 'mono'
+                monoq = device.getOutputQueue(name="mono", maxSize=1, blocking=False)
             else:
-                label = device.getQueueEvent(['detections', 'still_out'])
+                xoutDetect = device.getOutputQueue(name="detections", maxSize=1, blocking=False)
+                # still_queue = device.getOutputQueue(name="still_out", maxSize=1, blocking=False)
+                # ctrl_queue = device.getInputQueue(name='still_in')
+
+            #April Tag Calibration Data
+            calibdata = device.readCalibration()
+            intrinsics = calibdata.getCameraIntrinsics(dai.CameraBoardSocket.LEFT, destShape=(600,400))
+
+            oak_d_camera_params = (
+                intrinsics[0][0],
+                intrinsics[1][1],
+                intrinsics[0][2],
+                intrinsics[1][2],
+            )
             
-
-    #        print(label)
-
-            if label == "mono":
-                img = monoq.get().getCvFrame()
-
-                results = detector.detect(img,
-                                    l=1,
-                                    r=8,
-                                    maxhamming=0,
-                                    estimate_tag_pose=True,
-                                    tag_size=.1524,
-                                    camera_params=oak_d_camera_params)
-            
-                if debug:
-                    cv2.imshow('foo', img)
-                    if cv2.waitKey(1) == ord('q'):
-                        break
-                
-                if len(results) == 0:
-                    continue
-                
-                results.sort(reverse=True, key = lambda x: x.pose_err)
-                result: apriltag.Detection = results[0]
-
-                rotation_ts, translation_ts, rotation_cs, translation_cs = calculate_pose(result)
+            while True:
+                if mode == 'tag':
+                    label = 'mono'
+                else:
+                    label = device.getQueueEvent(['detections', 'still_out'])
                 
 
-                if(debug):
-                    if len(buffer) > 20:
-                        buffer = buffer[-20:]
+        #        print(label)
+
+                if label == "mono":
+                    img = monoq.get().getCvFrame()
+
+                    results = detector.detect(img,
+                                        l=1,
+                                        r=8,
+                                        maxhamming=0,
+                                        estimate_tag_pose=True,
+                                        tag_size=.1524,
+                                        camera_params=oak_d_camera_params)
+                
+                    if debug:
+                        cv2.imshow('foo', img)
+                        if cv2.waitKey(1) == ord('q'):
+                            break
                     
-                    buffer.append([*translation_ts, *translation_cs])
-                    b = np.array(buffer)
-                    ax1.cla()
-                    ax1.set(xlim=(-5,5), ylim=(-5,5))
-                    ax1.scatter([0], [0])
-                    ax1.plot(b[:,0], b[:,2])
-                    ax1.plot(b[:,3], b[:,5])
-                    plt.draw()
-                    plt.pause(.001)
-                
-                #Original frame of reference: x - side to side, y - up and down, z - towards target
-                #New frame of reference: x - towards target, y - side to side, z - up and down
+                    if len(results) == 0:
+                        continue
+                    
+                    results.sort(reverse=True, key = lambda x: x.pose_err)
+                    result: apriltag.Detection = results[0]
 
-                #based on tags whose z axis is pointing the same way as the field x axis
-                tag2field = np.array([[0,0,1],[-1,0,0],[0,-1,0]])
+                    rotation_ts, translation_ts, rotation_cs, translation_cs = calculate_pose(result)
+                    
 
-                #facing wrong way, rotate 180 around current y axis
-                if(tag.rot0[result.tag_id]):
-                    tag2field = tag2field@np.array([[-1,0,0],[0,1,0],[0,0,-1]])
-                
-                translation_fs = tag2field@translation_ts
-                translation_fs += tag.tagpos[result.tag_id]
+                    if(debug):
+                        if len(buffer) > 20:
+                            buffer = buffer[-20:]
+                        
+                        buffer.append([*translation_ts, *translation_cs])
+                        b = np.array(buffer)
+                        ax1.cla()
+                        ax1.set(xlim=(-5,5), ylim=(-5,5))
+                        ax1.scatter([0], [0])
+                        ax1.plot(b[:,0], b[:,2])
+                        ax1.plot(b[:,3], b[:,5])
+                        plt.draw()
+                        plt.pause(.001)
+                    
+                    #Original frame of reference: x - side to side, y - up and down, z - towards target
+                    #New frame of reference: x - towards target, y - side to side, z - up and down
 
-                #Rotation details
-                uvecp = [0,0,1] #plane vector
-                uvecn = [0,-1,0] #normal vector
-                
-                robot2cam = np.array(
-                    [[0,1,0],
-                        [0,0,-1],
-                        [-1,0,0]]
-                )
+                    #based on tags whose z axis is pointing the same way as the field x axis
+                    tag2field = np.array([[0,0,1],[-1,0,0],[0,-1,0]])
 
-                #If camera is flipped, the normal vector has to be rotated 180
-                if flip:
-                    uvecn = [0,1,0]
-                    rotation_ts = rotation_ts@np.array(
-                        [[1,0,0],
-                            [0,-1,0],
-                            [0,0,1]]
+                    #facing wrong way, rotate 180 around current y axis
+                    if(tag.rot0[result.tag_id]):
+                        tag2field = tag2field@np.array([[-1,0,0],[0,1,0],[0,0,-1]])
+                    
+                    translation_fs = tag2field@translation_ts
+                    translation_fs += tag.tagpos[result.tag_id]
+
+                    #Rotation details
+                    uvecp = [0,0,1] #plane vector
+                    uvecn = [0,-1,0] #normal vector
+                    
+                    robot2cam = np.array(
+                        [[0,1,0],
+                         [0,0,-1],
+                         [-1,0,0]]
                     )
-                
-                # rotvec = tag2field@(rotation_ts@uvecp)
-                # rollvec = tag2field@(rotation_ts@uvecn)
 
-                # #All angles given in deg, +- 180
+                    #If camera is flipped, the normal vector has to be rotated 180
+                    if flip:
+                        uvecn = [0,1,0]
+                        rotation_ts = rotation_ts@np.array(
+                            [[1,0,0],
+                             [0,-1,0],
+                             [0,0,1]]
+                        )
+                    
+                    # rotvec = tag2field@(rotation_ts@uvecp)
+                    # rollvec = tag2field@(rotation_ts@uvecn)
 
-                # #yaw - counterclockwise - 0 in line with [1,0,0]
-                # yaw = np.arctan2(rotvec[1], rotvec[0])
+                    # #All angles given in deg, +- 180
 
-                # #pitch - counterclockwise - 0 in line with [1,0,0]
-                # pitch = np.arctan2(rotvec[2], rotvec[0])
+                    # #yaw - counterclockwise - 0 in line with [1,0,0]
+                    # yaw = np.arctan2(rotvec[1], rotvec[0])
 
-                # #roll - counterclockwise - 0 in line with [0,0,1]
-                # roll = np.arctan2(rollvec[1], rollvec[2])
+                    # #pitch - counterclockwise - 0 in line with [1,0,0]
+                    # pitch = np.arctan2(rotvec[2], rotvec[0])
 
-                # #compile angles and turn them into degrees
-                # angles = [yaw, pitch, roll]
-                # angles = [np.rad2deg(a) for a in angles]
+                    # #roll - counterclockwise - 0 in line with [0,0,1]
+                    # roll = np.arctan2(rollvec[1], rollvec[2])
 
-                rot_quat = Rotation3D.from_rotation_matrix(tag2field@rotation_ts@robot2cam).to_quaternion()._components
+                    # #compile angles and turn them into degrees
+                    # angles = [yaw, pitch, roll]
+                    # angles = [np.rad2deg(a) for a in angles]
 
-                nts.send_pose([*translation_fs, *rot_quat])
+                    rot_quat = Rotation3D.from_rotation_matrix(tag2field@rotation_ts@robot2cam).to_quaternion()._components
 
-                if small_debug:
-                    print("Detected April Tag", translation_fs, rot_quat)
+                    nts.send_pose([*translation_fs, *rot_quat])
 
-            elif label == "detections":
-                detections: dai.SpatialImgDetections = xoutDetect.get()
+                    if small_debug:
+                        print("Detected April Tag", translation_fs, rot_quat)
 
-                ntData = []
-                for detection in detections.detections:
-                    label = detection.label
-                    x = detection.spatialCoordinates.x/1000
-                    y = detection.spatialCoordinates.y/1000
-                    z = detection.spatialCoordinates.z/1000
+                elif label == "detections":
+                    detections: dai.SpatialImgDetections = xoutDetect.get()
 
-                    ntData.extend([x,y,z,label])
-                    print("\t", {'x':x, 'y': y, 'z': z, 'label': label, 'confidnce': detection.confidence})
-                nts.send_detections(ntData)
+                    ntData = []
+                    for detection in detections.detections:
+                        label = detection.label
+                        x = detection.spatialCoordinates.x/1000
+                        y = detection.spatialCoordinates.y/1000
+                        z = detection.spatialCoordinates.z/1000
 
-            # elif label == "still_out":
-            #     img = still_queue.get().getCvFrame()
-            #     io_q.put_nowait(img)
-                
+                        ntData.extend([x,y,z,label])
+                        print("\t", {'x':x, 'y': y, 'z': z, 'label': label, 'confidnce': detection.confidence})
+                    nts.send_detections(ntData)
 
-            # if time.monotonic() - curr_time >= 1 and mode != 'tag':
-            #     curr_time = time.monotonic()
-            #     ctrl = dai.CameraControl()
-            #     ctrl.setCaptureStill(True)
-            #     ctrl_queue.send(ctrl)
+                # elif label == "still_out":
+                #     img = still_queue.get().getCvFrame()
+                #     io_q.put_nowait(img)
+                    
+
+                # if time.monotonic() - curr_time >= 1 and mode != 'tag':
+                #     curr_time = time.monotonic()
+                #     ctrl = dai.CameraControl()
+                #     ctrl.setCaptureStill(True)
+                #     ctrl_queue.send(ctrl)
 
     except KeyboardInterrupt:
         raise
