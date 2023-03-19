@@ -8,8 +8,12 @@ import time
 import cv2
 import depthai as dai
 from multiprocessing import Process, Queue
+# Importing pupil_apriltags injects some DLL dependency on Windows
+try:
+    import pupil_apriltags
+except ImportError:
+    pass
 #Special MOE one
-import pupil_apriltags
 import moe_apriltags as apriltag
 import numpy as np
 import sys
