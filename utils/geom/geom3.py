@@ -116,7 +116,7 @@ class Rotation3D(Interpolable['Rotation3D']):
         if np.linalg.norm((R @ R.T) - np.identity(3), ord='fro') > EPS:
             raise ValueError(f"Rotation matrix isn't orthogonal\n\nR =\n{R}")
         if np.abs(np.linalg.det(R) - 1) > EPS:
-            raise ValueError(f"Rotation matrix is orthogonal but not special orthogonal\n\nR =\n{R}")
+            raise ValueError(f"Rotation matrix is orthogonal but not special orthogonal\nR =\n{R}")
 
         # Turn rotation matrix into a quaternion
         # https://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/
