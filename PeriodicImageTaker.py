@@ -12,13 +12,14 @@ delay = 0.5
 pipeline = dai.Pipeline()
 
 # Define source and output
-camRgb = pipeline.create(dai.node.ColorCamera)
+camRgb = pipeline.createColorCamera()
 xoutRgb = pipeline.create(dai.node.XLinkOut)
 
 xoutRgb.setStreamName("rgb")
 
 # Properties
 camRgb.setPreviewSize(640,640)
+camRgb.setStillSize(640, 640)
 camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
 camRgb.setInterleaved(False)
 camRgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.RGB)
