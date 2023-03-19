@@ -24,13 +24,13 @@ Set this to `True` if you want to simulate an apriltag rotating around, instead 
 
 camera0_rs = Transform3D(
     Translation3D(0,0,0),
-    Rotation3D.from_rotation_matrix(np.array(
-                                    [[ 0, 0, 1],
-                                     [-1, 0, 0],
-                                     [ 0,-1, 0]]
-                                   ))
+    # Rotation3D.from_rotation_matrix(np.array(
+    #                                 [[ 0, 0, 1],
+    #                                  [-1, 0, 0],
+    #                                  [ 0,-1, 0]]
+    #                                ))
     # Rotation3D.identity()
-    # + Rotation3D.from_axis_angle([1,0,0], 90, degrees=True)
+    Rotation3D.from_axis_angle('x', 90, degrees=True)
     # + Rotation3D.from_axis_angle([0,1,0], 180, degrees=True)
     # + Rotation3D.from_axis_angle([1,0,0], 90, degrees=True)
 )
@@ -39,8 +39,9 @@ class ItemDetection(NamedTuple):
     camera_id: int
     item_id: 'ObjectId'
     "What item was detected"
-    pose_cs: Pose3D
+    pose_cs: Transform3D
     "Item pose (in camera-space)"
+    ambiguity: float
 
 class TagDetector:
     camera_id: int
@@ -60,6 +61,15 @@ class OakTagDetector(TagDetector):
         import depthai as dai
         pipeline = dai.Pipeline()
 
+        # rgbout = pipeline.createXLinkOut()
+        # rgbout.setStreamName("rgb")
+
+        # rgbcam = pipeline.createColorCamera()
+        # rgbcam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
+        # rgbcam.setFps(30)
+
+        # pipeline.link(rgbcam.preview, rgbout.input)
+
         monoout = pipeline.createXLinkOut()
         monoout.setStreamName("mono")
 
@@ -71,9 +81,9 @@ class OakTagDetector(TagDetector):
         monocam.out.link(monoout.input)
         return pipeline
     
-    def __init__(self) -> None:
-        self.camera_id = 0
-        self.camera_rs = camera0_rs
+    def __init__(self, camera_id: int, camera_rs: Transform3D) -> None:
+        self.camera_id = camera_id
+        self.camera_rs = camera_rs
 
         import moe_apriltags as apriltag
         try:
@@ -89,6 +99,7 @@ class OakTagDetector(TagDetector):
         self._device = dai.Device(self.create_pipeline())
         device: dai.Device = self._device.__enter__()
         self.monoq = device.getOutputQueue(name="mono", maxSize=1, blocking=False)
+        # self.rgbq = device.getOutputQueue(name='rgb', maxSize=1, blocking=False)
         calibdata = device.readCalibration()
         intrinsics = calibdata.getCameraIntrinsics(dai.CameraBoardSocket.LEFT, destShape=(600,400))
         self._camera_params = (
@@ -104,7 +115,7 @@ class OakTagDetector(TagDetector):
         del self._device
         return res
     
-    def detect(self) -> list[tuple[int, Transform3D]]:
+    def detect(self):
         frame: 'dai.ImgFrame' = self.monoq.get()
         img: np.ndarray = frame.getCvFrame()
 
@@ -129,10 +140,16 @@ class OakTagDetector(TagDetector):
         detections.sort(reverse=True, key = lambda x: x.pose_err)
         detection = detections[0]
         
+        tag2field = np.array([
+				[1,0,0],
+				[0,0,1],
+				[0,1,0]
+			])
+        
         #rotation object is for the back of the apriltag
         tag_cs = Transform3D(
-            Translation3D(detection.pose_t[:,0]),
-            rotation=Rotation3D.from_rotation_matrix(detection.pose_R)
+            Translation3D(tag2field@detection.pose_t[:,0]),
+            rotation=Rotation3D.from_rotation_matrix(tag2field@detection.pose_R)
         )
         
         return [
@@ -146,7 +163,7 @@ class FakeTagDetector(TagDetector):
         self.camera_rs = camera0_rs
         self.i = 0
     
-    def detect(self) -> list[tuple[int, Transform3D]]:
+    def detect(self):
         import time
         time.sleep(.03)
         if self.i < 60:
@@ -165,8 +182,7 @@ class FakeTagDetector(TagDetector):
             (1, tag_cs)
         ]
 
-
-def robot_from_tag(tag_cs: Transform3D, tag_id: int, camera_rs: Transform3D, camera_id: int, dbf: Optional[DebugFrame] = None):
+def robot_from_tag(tag_cs: Transform3D, tag_id: int, camera_rs: Transform3D, camera_id: int, dbf: Optional[DebugFrame] = None, *, tags: dict[int, Pose3D] = tag.tags):
     """
     Compute the robot pose (`robot_fs`) from a tag detection (`tag_cs`)
 
@@ -187,13 +203,14 @@ def robot_from_tag(tag_cs: Transform3D, tag_id: int, camera_rs: Transform3D, cam
     tag_fs = tags[tag_id]
 
     #What tag camera space looks like in tag space
-    tcs_ts : Pose3D = Pose3D(Translation3D(0,0,0),
+    tcs_ts = Transform3D(
+        Translation3D(0,0,0),
                         Rotation3D.from_rotation_matrix(np.array(
                             [[0, 0,-1],
                              [1, 0, 0],
                              [0,-1, 0]]
                         )))
-
+    tcs_ts = Transform3D.identity()
     #go from tag camera space to tag space
 
     camera_fs = (
@@ -232,12 +249,18 @@ def robot_from_tag(tag_cs: Transform3D, tag_id: int, camera_rs: Transform3D, cam
 
     return robot_fs
 
+def estimate_pose(detections: list[ItemDetection], camera_rss: dict[CameraId, Transform3D], tags: dict[int, Pose3D] = tag.tags) -> Pose3D:
+    detections.sort(key=lambda detection: detection.ambiguity)
+    detection = detections[0]
+    camera_rs = camera_rss[CameraId(detection.camera_id)]
+    print(detection, camera_rs)
+    return robot_from_tag(detection.pose_cs, detection.item_id.id, camera_rs, detection.camera_id, None, tags=tags)
 
 if __name__ == '__main__':
     import Network_Tables_Sender as nts
 
     debugger: Debugger = WebDebug() if debugger_type == 'web' else Debugger()
-    with (FakeTagDetector() if simulate else OakTagDetector()) as detector:
+    with (FakeTagDetector() if simulate else OakTagDetector(0, camera0_rs)) as detector:
         print('ready')
 
         while True:
