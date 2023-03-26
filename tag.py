@@ -1,7 +1,7 @@
 import json
 import numpy as np
 
-tagf = open('tags.json')
+tagf = open('data/tags.json')
 
 data = json.load(tagf)
 

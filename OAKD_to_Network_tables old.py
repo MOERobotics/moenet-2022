@@ -458,10 +458,6 @@ def main(mode = 'obj', mxid = None):
             #     ctrl.setCaptureStill(True)
             #     ctrl_queue.send(ctrl)
 
-    except KeyboardInterrupt:
-        raise
-    except Exception as e:
-        print(e)
     # finally:
     #     if io_proc is not None:
     #         io_proc.terminate()

@@ -1,6 +1,6 @@
 import cv2
 import depthai as dai
-import pupil_apriltags as apriltag
+import moe_apriltags as apriltag
 from time import monotonic
 
 #For webcam
@@ -25,6 +25,8 @@ monocam.setResolution(dai.MonoCameraProperties.SensorResolution.THE_800_P)
 monocam.setFps(30)
 monocam.setBoardSocket(dai.CameraBoardSocket.LEFT)
 
+monocam.initialControl.setManualExposure(350,800)
+
 monocam.out.link(monoout.input)
 
 detector = apriltag.Detector(families="tag16h5", nthreads=2)
@@ -40,7 +42,10 @@ with dai.Device(pipeline) as device:
 #    calibdata = device.readCalibration()
 #    print(calibdata.getDefaultIntrinsics(dai.CameraBoardSocket.LEFT))
     monoq = device.getOutputQueue(name = "mono")
-
+    cq = [0]*100
+    ptr1 = 0
+    ptr2 = 0
+    print('Ready')
     while True:
         #timing data
         ct = monotonic()
@@ -48,16 +53,22 @@ with dai.Device(pipeline) as device:
 
 
         #Count Frames
-        cnt += 1
+        good = 0
         
         #Use this to convert to grayscale if needed - should be reading from the gray camera from oak-D
         #img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         results = detector.detect(img, estimate_tag_pose=True, tag_size=.1524, camera_params=oak_d_camera_params)
+        # print(results)
         for result in results:
-            if result.hamming > 0 or result.tag_id == 0 or result.tag_id > 8:
-                continue
-                       
-            
+            good = 1
+        
+        if good:
+            cnt += 1
+
+        cq[ptr2] = ct
+        ptr2 += 1
+        if(ptr2 >= 100):
+            ptr2 -= 100
             
             #Annotates images
             """
@@ -85,17 +96,24 @@ with dai.Device(pipeline) as device:
             print(result.pose_t*39.3701)
             """
         
-        if(cnt%20 == 0):
-            mt = monotonic()
-            t = mt-ct
+        if(cnt > 0 and cnt%20 == 0):
+            # print(cq)
+            ct = monotonic()
+            while cq[ptr1] < ct - 1:
+                ptr1 += 1
+                if(ptr1 >= 100):
+                    ptr1 -= 100
+            print('Average FPS', (ptr2-ptr1)%100)
+            # mt = monotonic()
+            # t = mt-ct
 
-            print('Avg:', 100/(mt-times[cnt%100]))
-            times[cnt%100] = mt
+            # print('Avg:', 100/(mt-times[cnt%100]))
+            # times[cnt%100] = mt
 
-            if(t != 0):
-                print('Instant:',1/(t))
-            else:
-                print('Subzero?')
+            # if(t != 0):
+            #     print('Instant:',1/(t))
+            # else:
+            #     print('Subzero?')
         
         """
         # show the output image after AprilTag detection

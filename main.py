@@ -1,14 +1,15 @@
-import json
-import Network_Tables_Sender as nts
 from multiprocessing import set_start_method, Process, Queue
 from queue import Empty
-from time import sleep, monotonic
+from time import sleep
 import fnmatch
 import os
 from camera import camera_init
-from apriltags import combine
+
+#How often messages are sent to Network Tables in Hz
+update_frequency = 100
 
 if __name__ == '__main__':
+    #Important - Default on Linux is fork which doesn't work well with depthai
     set_start_method('spawn')
     camera_data = fnmatch.filter(os.listdir('./data/'), 'Cam_*.json')
     
@@ -24,28 +25,28 @@ if __name__ == '__main__':
                     daemon=True
                 )
         io_proc.start()
+
+    from apriltags import combine_detections, network_format
+    import Network_Tables_Sender as nts
+    
     while True:
         # Collect data from child processes and send to Network tables
-        #Detections have the following format - {translation, rotation, error}
-        #Will send None object prior to each detection cycle
+        #Detections have the following format - list({detection})
         apriltags = []
         for q in apriltag_queue:
-            current_apriltags = []
+            current_apriltags : list(apriltags.detections)
             while True:
                 try:
                     item = q.get(block=False)
                 except Empty:
                     break
-                if item is None:
-                    current_apriltags = []
-                else:
-                    current_apriltags.append(item)
+                current_apriltags.append(item)
             apriltags.extend(current_apriltags)
         
         if len(apriltags) != 0:
             #Combine poses
-            pose = combine(apriltags)
-            nts.send_pose(pose)
+            pose = combine_detections(apriltags)
+            nts.send_pose(network_format(pose))
 
         objects = []
         for q in object_queue:
@@ -60,5 +61,5 @@ if __name__ == '__main__':
         if len(objects) != 0:
             nts.send_detections(objects)
 
-        # Pause for 10ms
-        sleep(0.01)
+        # Pause for given time
+        sleep(1/update_frequency)
