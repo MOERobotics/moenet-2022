@@ -2,7 +2,7 @@ import json
 from utils.geom.geom3 import Pose3D, Translation3D, Rotation3D
 from utils.geom.quaternion import Quaternion
 
-tagf = open('tags.json')
+tagf = open('data/tags.json')
 
 data = json.load(tagf)
 
