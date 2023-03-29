@@ -16,6 +16,8 @@ if __name__ == '__main__':
     apriltag_queue = []
     object_queue = []
     
+    #Change max apriltag queue size to 1
+
     for cam in camera_data:
         apriltag_queue.append(Queue())
         object_queue.append(Queue())
@@ -33,6 +35,7 @@ if __name__ == '__main__':
         # Collect data from child processes and send to Network tables
         #Detections have the following format - list({detection})
         apriltags = []
+        #This will change once queue size is set to 1
         for q in apriltag_queue:
             current_apriltags : list(apriltags.detections)
             while True:
