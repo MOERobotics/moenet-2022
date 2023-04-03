@@ -1,4 +1,4 @@
 # moenet-2022
-MOEnet image processing (for MOE U 2022)
+MOEnet image processing
 
-You thought we would actually put something here gottem.
+State of the art vision system utilizing ML and CV to guide the robot.
