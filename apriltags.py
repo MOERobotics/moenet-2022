@@ -1,5 +1,5 @@
 import tag
-from .utils.geom.geom3 import Rotation3D, Transform3D, Pose3D, Translation3D
+from utils.geom.geom3 import Rotation3D, Transform3D, Pose3D, Translation3D
 import numpy as np
 import moe_apriltags as apriltag
 
@@ -17,7 +17,7 @@ class detection:
     error : float
 
     @classmethod
-    def convert(cdetection):
+    def convert(cls, cdetection):
         converted = detection()
         converted.tag_id = cdetection.tag_id
         converted.relative_pose = Transform3D(

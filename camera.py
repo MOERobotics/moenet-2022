@@ -1,7 +1,8 @@
-import os
+from pathlib import Path
 from multiprocessing import Queue
 from enum import Enum
 from utils.geom.geom3 import Rotation3D, Transform3D, Pose3D, Translation3D
+from utils.geom.quaternion import Quaternion
 import depthai as dai
 
 
@@ -27,6 +28,9 @@ class Camera:
         elif self.resolution == 800:
             monoLeft.setResolution(dai.MonoCameraProperties.SensorResolution.THE_800_P)
         monoLeft.setBoardSocket(dai.CameraBoardSocket.LEFT)
+
+        #Set a low exposure
+        monoLeft.initialControl.setManualExposure(350,800)
 
         # Linking
 
@@ -150,12 +154,12 @@ def camera_init(info_file: str, apriltag_queue: Queue, object_queue: Queue):
     #Set up
     if True:
         cam.mxid = camera_data['MXID']
-        cam.type = camera_data['Type']
-        cam.mode = camera_data['Mode']
-
-        cam.pose = Pose3D(Translation3D(camera_data['Pose']['Translation'].values()),
-                        Rotation3D(camera_data['Pose']['Rotation'].values()))
-        if cam.type == 'S2':
+        cam.type = Camera.type(camera_data['Type'])
+        cam.mode = Camera.mode(camera_data['Mode'])
+      
+        cam.pose = Pose3D(Translation3D(*camera_data['Pose']['Translation'].values()),
+                        Rotation3D(Quaternion(*camera_data['Pose']['Rotation'].values())))
+        if cam.type == Camera.type.S2:
             cam.resolution = 800
         else:
             cam.resolution = 400
@@ -165,8 +169,10 @@ def camera_init(info_file: str, apriltag_queue: Queue, object_queue: Queue):
         cam.obj_create_pipeline()
     elif cam.mode == Camera.mode.hybrid:
         cam.hybrid_create_pipeline()
+    else:
+        print('NO MODE')
     
-    cam._device = dai.Device(cam.create_pipeline(cam.pipeline))
+    cam._device = dai.Device(cam.pipeline, dai.DeviceInfo(cam.mxid))
     cam.device: dai.Device = cam._device.__enter__()
 
     if cam.mode == Camera.mode.tag:

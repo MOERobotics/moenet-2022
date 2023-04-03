@@ -11,8 +11,11 @@ update_frequency = 100
 if __name__ == '__main__':
     #Important - Default on Linux is fork which doesn't work well with depthai
     set_start_method('spawn')
+    prefix = os.getcwd()+'/data/'
     camera_data = fnmatch.filter(os.listdir('./data/'), 'Cam_*.json')
-    
+    #Add prefix to these paths
+    camera_data = [prefix+i for i in camera_data]
+
     apriltag_queue = []
     object_queue = []
     
@@ -21,6 +24,7 @@ if __name__ == '__main__':
     for cam in camera_data:
         apriltag_queue.append(Queue())
         object_queue.append(Queue())
+        
         io_proc = Process(
                     target=camera_init,
                     args=(cam, apriltag_queue[-1], object_queue[-1]),
@@ -28,7 +32,7 @@ if __name__ == '__main__':
                 )
         io_proc.start()
 
-    from apriltags import combine_detections, network_format
+    from apriltags import combine_detections, network_format, detection
     import Network_Tables_Sender as nts
     
     while True:
@@ -37,13 +41,12 @@ if __name__ == '__main__':
         apriltags = []
         #This will change once queue size is set to 1
         for q in apriltag_queue:
-            current_apriltags : list(apriltags.detections)
+            current_apriltags : list[detection] = []
             while True:
                 try:
-                    item = q.get(block=False)
+                    current_apriltags = q.get(block=False)
                 except Empty:
                     break
-                current_apriltags.append(item)
             apriltags.extend(current_apriltags)
         
         if len(apriltags) != 0:
