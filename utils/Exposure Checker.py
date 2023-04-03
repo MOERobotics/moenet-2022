@@ -2,9 +2,10 @@ import cv2
 import depthai as dai
 import moe_apriltags as apriltag
 from time import monotonic
+import keyboard
 
-#For webcam
-#camera = cv2.VideoCapture(0)
+exposure_time = 350 #exposure time in us
+increment = 50 #Increment that the exposure time can be increased/decreased by
 
 #OAK-D
 
@@ -25,24 +26,38 @@ monocam.setResolution(dai.MonoCameraProperties.SensorResolution.THE_800_P)
 monocam.setFps(30)
 monocam.setBoardSocket(dai.CameraBoardSocket.LEFT)
 
-monocam.initialControl.setManualExposure(350,800)
+monocam.initialControl.setManualExposure(exposure_time,800)
 
 monocam.out.link(monoout.input)
+
+#Set up dynamic control
+controlIn = pipeline.create(dai.node.XLinkIn)
+controlIn.setStreamName('control')
+controlIn.out.link(monocam.inputControl)
+
 
 detector = apriltag.Detector(families="tag16h5", nthreads=2)
 
 cnt = 0
 
 ct = monotonic()
+lastlook = ct
 
-
-times = [0]*100
+buffer_size = 100
+times = [0]*buffer_size
 
 with dai.Device(pipeline) as device:
+    
+    
 #    calibdata = device.readCalibration()
 #    print(calibdata.getDefaultIntrinsics(dai.CameraBoardSocket.LEFT))
+    
+    #Set up Queues
     monoq = device.getOutputQueue(name = "mono")
-    cq = [0]*100
+    controlQueue = device.getInputQueue(controlIn.getStreamName())
+    
+    #Set up 
+    cq = [0]*buffer_size
     ptr1 = 0
     ptr2 = 0
     print('Ready')
@@ -64,11 +79,10 @@ with dai.Device(pipeline) as device:
         
         if good:
             cnt += 1
-
-        cq[ptr2] = ct
-        ptr2 += 1
-        if(ptr2 >= 100):
-            ptr2 -= 100
+            cq[ptr2] = ct
+            ptr2 += 1
+            if(ptr2 >= buffer_size):
+                ptr2 -= buffer_size
             
             #Annotates images
             """
@@ -95,20 +109,19 @@ with dai.Device(pipeline) as device:
             #Prints pose detection information
             print(result.pose_t*39.3701)
             """
-        
-        if(cnt > 0 and cnt%20 == 0):
-            # print(cq)
-            ct = monotonic()
-            while cq[ptr1] < ct - 1:
+        ct = monotonic()
+        if ct-lastlook >= 1:
+            lastlook = ct
+            while cq[ptr1] < ct - 1 and ptr1 != ptr2:
                 ptr1 += 1
-                if(ptr1 >= 100):
-                    ptr1 -= 100
-            print('Average FPS', (ptr2-ptr1)%100)
+                if(ptr1 >= buffer_size):
+                    ptr1 -= buffer_size
+            print('Average FPS:', (ptr2-ptr1)%buffer_size)
             # mt = monotonic()
             # t = mt-ct
 
-            # print('Avg:', 100/(mt-times[cnt%100]))
-            # times[cnt%100] = mt
+            # print('Avg:', buffer_size/(mt-times[cnt%buffer_size]))
+            # times[cnt%buffer_size] = mt
 
             # if(t != 0):
             #     print('Instant:',1/(t))
@@ -120,6 +133,16 @@ with dai.Device(pipeline) as device:
         cv2.imshow("image", img)
         """
         
+        cv2.imshow("image", img)
+
         key = cv2.waitKey(1)
         if key == ord('q') or key == ord('Q'):
             break
+        #Change exposure
+        elif key in [ord('i'), ord('o')]:
+            if key == ord('i'): exposure_time += increment
+            if key == ord('o'): exposure_time -= increment
+            print("Setting manual exposure, time:", exposure_time)
+            ctrl = dai.CameraControl()
+            ctrl.setManualExposure(exposure_time, 800)
+            controlQueue.send(ctrl)
