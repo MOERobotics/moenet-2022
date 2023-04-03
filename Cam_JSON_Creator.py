@@ -1,6 +1,6 @@
 import json
 from sys import path
-
+import depthai
 import camera
 
 def fillout_json(info : dict, name : str = 'Info'):
@@ -100,6 +100,11 @@ info = {
 
 print('Please fill out the following information: ')
 camera_name = input("Enter the camera name: ")
+
+print('Available MXIDS:')
+for device in depthai.Device.getAllAvailableDevices():
+    print(f"{device.getMxId()}")
+
 fillout_json(info)
 
 with open(f"Cam_{camera_name}.json", 'w') as output:

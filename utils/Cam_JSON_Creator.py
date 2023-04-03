@@ -1,4 +1,6 @@
 import json
+import depthai as dai
+
 
 def fillout_json(info : dict):
 
@@ -13,7 +15,7 @@ def fillout_json(info : dict):
         while True:
             info_len = len(info)
             #Print what is being edited
-            print('Editing the follwing values: ', end = '')
+            print('Editing the following values: ', end = '')
             print(*info.keys(), sep = ', ')
             confirm = input(f'Would you like to write all {info_len} values at once?: ')
             confirm = confirm.lower()
