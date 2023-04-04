@@ -17,12 +17,12 @@ class detection:
     error : float
 
     @classmethod
-    def convert(cls, cdetection):
+    def convert(cls, cdetection : apriltag.Detection):
         converted = detection()
         converted.tag_id = cdetection.tag_id
         converted.relative_pose = Transform3D(
-            Translation3D(detection.pose_t[:,0]),
-            rotation=Rotation3D.from_rotation_matrix(detection.pose_R)
+            Translation3D(cdetection.pose_t[:,0]),
+            rotation=Rotation3D.from_rotation_matrix(cdetection.pose_R)
         )
         return converted
 
@@ -78,6 +78,7 @@ class TagDetector:
 
         final_detections = []
         for tag in detections:
+            print(tag)
             converted : detection = detection.convert(tag)
             tag_cs = detection.relative_pose
 
